@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.github.hiteshlilhare</groupId>
+  <artifactId>JCPlayStore</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <!-- <version>1.0</version>  -->
+
+  <name>JCPlayStore</name>
+  <url>https://github.com/hiteshlilhare/JCPlayStore</url>
+  <description>Play Store for Java Card</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+  </properties>
+
+  <dependencies>
+    <!-- https://mvnrepository.com/artifact/org.kohsuke/github-api -->
+    <!-- This library defines an object oriented representation of the GitHub API -->
+    <dependency>
+        <groupId>org.kohsuke</groupId>
+        <artifactId>github-api</artifactId>
+        <version>1.92</version>
+    </dependency>
+    
+    <dependency>
+        <groupId>com.github.docker-java</groupId>
+        <artifactId>docker-java</artifactId>
+        <version>3.0.14</version>
+    </dependency>
+    
+    <!-- https://mvnrepository.com/artifact/com.github.martinpaljak/globalplatformpro -->
+    <dependency>
+        <groupId>com.github.martinpaljak</groupId>
+        <artifactId>globalplatformpro</artifactId>
+        <version>0.3.10-rc12</version>
+    </dependency>
+
+    <!-- https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit -->
+    <dependency>
+        <groupId>org.eclipse.jgit</groupId>
+        <artifactId>org.eclipse.jgit</artifactId>
+        <version>5.0.2.201807311906-r</version>
+    </dependency>
+
+
+    <!-- https://mvnrepository.com/artifact/com.github.martinpaljak/apdu4j -->
+    <dependency>
+        <groupId>com.github.martinpaljak</groupId>
+        <artifactId>apdu4j</artifactId>
+        <version>17.11.26</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+    <!-- Gson is a Java library that can be used to convert Java Objects into their JSON representation.
+    It can also be used to convert a JSON string to an equivalent Java object.
+    Gson can work with arbitrary Java objects including pre-existing objects that 
+    you do not have source code of. -->
+    <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.8.2</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient -->
+    <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpclient</artifactId>
+        <version>4.5.5</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-simple</artifactId>
+        <version>1.7.25</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>1.7.25</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on -->
+    <dependency>
+        <groupId>org.bouncycastle</groupId>
+        <artifactId>bcprov-jdk15on</artifactId>
+        <version>1.59</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/net.sf.jopt-simple/jopt-simple -->
+    <dependency>
+        <groupId>net.sf.jopt-simple</groupId>
+        <artifactId>jopt-simple</artifactId>
+        <version>5.0.4</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/com.payneteasy/ber-tlv -->
+    <dependency>
+        <groupId>com.payneteasy</groupId>
+        <artifactId>ber-tlv</artifactId>
+        <version>1.0-8</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.12</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  
+  <!-- Copied from https://central.sonatype.org/pages/apache-maven.html -->
+  <!-- The below configurations will get the user account details to deploy to OSSRH from your Maven settings.xml file -->
+  <!-- Note how the id element in the server element in settings.xml is identical to the id elements in the snapshotRepository and repository element as well as the serverId configuration of the Nexus Staging Maven plugin. -->
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+  
+  <build>
+    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+      <plugins>
+        <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>1.6.0</version>
+            <executions>
+                <execution>
+                    <id>my-execution</id>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>java</goal>
+                    </goals>
+                </execution>
+            </executions>
+            <configuration>
+                <mainClass>com.github.hiteshlilhare.jcplaystore.JCPlayStoreClient</mainClass>
+            </configuration>
+        </plugin>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
+        <!-- see http://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
+        <plugin>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.7.0</version>
+          <configuration>
+            <source>1.8</source>
+            <target>1.8</target>
+            <debug>true</debug>
+            <debuglevel>lines,vars,source</debuglevel>
+            <compilerArgs>
+                <arg>-XDenableSunApiLintControl</arg>
+                <arg>-Xlint:deprecation</arg>
+                <arg>-Xlint:unchecked</arg>
+                <arg>-Xlint:sunapi</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>2.22.0</version>
+          <configuration>
+            <argLine>-Dfile.encoding=UTF-8</argLine>
+          </configuration>        
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.1.0</version>          
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>2.4</version>
+          <configuration>
+            <createChecksum>true</createChecksum>
+          </configuration>
+        </plugin>        
+        <!-- The Maven GPG plugin is used to sign the components with the following configuration -->
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.6</version>
+            <executions>
+                <execution>
+                    <id>sign-artifacts</id>
+                    <phase>verify</phase>
+                    <goals>
+                        <goal>sign</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        <!-- To get Javadoc and Source jar files generated, you have to configure the javadoc and source Maven plugins -->
+        <plugin>
+            <!-- By default binds to the package phase of maven project lifecycle  -->
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>2.4</version>
+            <executions>
+                <execution>
+                    <id>attach-sources</id>
+                    <goals>
+                        <goal>jar-no-fork</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>2.10.4</version>
+            <executions>
+                <execution>
+                    <!-- <id></id> exists only for you to be able to distinguish between other executions.-->
+                    <id>attach-javadocs</id>
+                    <goals>
+                        <!-- javadoc:jar creates an archive file of the generated Javadocs. It is used 
+                        during the release process to create the Javadoc artifact for the project's 
+                        release. This artifact is uploaded to the remote repository along with the 
+                        project's compiled binary and source archive. -->
+                        <goal>jar</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        <!-- The Nexus Staging Maven Plugin is the recommended way to deploy your components to OSSRH and release them to the Central Repository -->
+        <!-- https://github.com/sonatype/nexus-maven-plugins/tree/master/staging/maven-plugin -->
+        <plugin>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <version>1.6.8</version>
+            <!-- In Maven3, the simplest needed to be done is to add the plugin to the build, and 
+            define it as extension and add wanted configuration.  
+            Plugin's LifecycleParticipant (a new Maven3 feature) will "automagically" do everything 
+            for you: it will disable maven-deploy-plugin:deploy executions, inject 
+            nexus-staging-maven-plugin:deploy executions instead-->
+            <extensions>true</extensions>
+            <configuration>
+                <serverId>ossrh</serverId>
+                <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                <autoReleaseAfterClose>true</autoReleaseAfterClose>
+            </configuration>
+        </plugin>
+        <!-- http://zlika.github.io/reproducible-build-maven-plugin/ -->
+        <!--
+        The "strip-jar" goal processes all the ZIP/JAR/WAR/EAR files found in the target repository and
+        does the following things: 
+        -sorts ZIP entries by name,
+        -replaces file timestamps in ZIP entries with a fixed value,
+        -removes timestamps, user names and tool versions in MANIFEST.MF,
+        -removes comments in pom.properties file (some of them can contain time/date).
+        -->
+        <plugin>
+            <groupId>io.github.zlika</groupId>
+            <artifactId>reproducible-build-maven-plugin</artifactId>
+            <version>0.3</version>
+            <executions>
+                <execution>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>strip-jar</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+  
+  <licenses>
+    <license>
+        <name>MIT License</name>
+        <url>https://github.com/hiteshlilhare/JCPlayStore/blob/master/LICENSE</url>
+        <distribution>repo</distribution>                
+    </license>
+  </licenses>
+  <scm>
+    <url>https://github.com/hiteshlilhare/JCPlayStore</url>
+  </scm>
+  <developers>
+    <developer>
+        <id>hiteshlilhare</id>
+        <name>Hitesh Lilhare</name>
+        <email>hitesh.lilhare@gmail.com</email>
+        <url>https://github.com/hiteshlilhare</url>
+        <roles>
+            <role>developer</role>
+        </roles>
+    </developer>
+  </developers>
+</project>
