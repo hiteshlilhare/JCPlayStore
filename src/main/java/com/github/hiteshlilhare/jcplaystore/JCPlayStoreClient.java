@@ -31,6 +31,7 @@ import javax.smartcardio.TerminalFactory;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.filechooser.FileSystemView;
@@ -215,7 +216,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
         }
     }
 
-    protected static OptionSet parseArguments(String[] argv) throws IOException {
+    private static OptionSet parseArguments(String[] argv) throws IOException {
         OptionSet args = null;
         OptionParser parser = new OptionParser();
 
@@ -492,7 +493,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         .addComponent(commandComboBox, javax.swing.GroupLayout.PREFERRED_SIZE, 158, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(12, 12, 12)
                         .addComponent(commonButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 85, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 161, Short.MAX_VALUE)
                         .addComponent(goButton))
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(commonLabel)
@@ -575,6 +576,15 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
     }//GEN-LAST:event_listCardReadersMenuItemActionPerformed
 
     private void goButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_goButtonActionPerformed
+        //updateTextArea("", false);
+        ///////
+//        SwingUtilities.invokeLater(new Runnable() {
+//            public void run() {
+//                statusTextArea.setText("");
+//            }
+//        });
+        
+        //////
         String command = commandComboBox.getSelectedItem().toString();
         if (command != null && command.length() > 0) {
             switch (command) {
@@ -590,11 +600,12 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     break;
                 case CMD_INSTALL:
                     statusMessage = new StringBuilder();
-                    System.out.println("***** " + commonComboBox.getSelectedItem().toString());
                     File capfile = new File(commonComboBox.getSelectedItem().toString());
                     if (capfile.exists() && capfile.isFile()) {
-                        installedApplet(capfile, statusMessage);
-                        statusTextArea.setText(statusMessage.toString());
+                        statusTextArea.setText("Installing Applet..." +  System.lineSeparator());
+                        //updateTextArea("Installing Applet..." +  System.lineSeparator(), false);
+                        installApplet(capfile, statusMessage);
+                        statusTextArea.append(statusMessage.toString());
                     } else {
                         statusTextArea.setText("Please select a CAP file");
                     }
@@ -602,8 +613,12 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                 case CMD_DELETE:
                     statusMessage = new StringBuilder();
                     AID aid = AID.fromString(commonComboBox.getSelectedItem().toString());
+                    //statusMessage.append("Deleting ").append(commonComboBox.getSelectedItem().toString()).append(" Applet...").append(System.lineSeparator());
+                    //updateTextArea("Deleting " + commonComboBox.getSelectedItem().toString() + " Applet..." + System.lineSeparator(),false);
+                    statusTextArea.setText("Deleting " + commonComboBox.getSelectedItem().toString() + " Applet..." + System.lineSeparator());
                     deleteInstalledApplets(aid, statusMessage);
-                    statusTextArea.setText(statusMessage.toString());
+                    statusTextArea.append(statusMessage.toString());
+                    populateInstalledAppletCombobox();
                     break;
                 default:
                     break;
@@ -650,14 +665,18 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                 commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{"<Please provide CAP file path>"}));
             }
         } else if (((JButton) evt.getSource()).getText().equals("List Installed Applets")) {
-            ArrayList<String> aidList = new ArrayList<>();
-            StringBuilder statusMessage = new StringBuilder();
-            getAIDListOfInstalledApplets(aidList, statusMessage);
-            statusTextArea.setText(statusMessage.toString());
-            String[] strAIDArray = new String[aidList.size()];
-            commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(aidList.toArray(strAIDArray)));
+            populateInstalledAppletCombobox();
         }
     }//GEN-LAST:event_commonButtonActionPerformed
+
+    private void populateInstalledAppletCombobox() {
+        ArrayList<String> aidList = new ArrayList<>();
+        StringBuilder statusMessage = new StringBuilder();
+        getAIDListOfInstalledApplets(aidList, statusMessage);
+        statusTextArea.setText(statusMessage.toString());
+        String[] strAIDArray = new String[aidList.size()];
+        commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(aidList.toArray(strAIDArray)));
+    }
 
     private void setInstallAppletWidgetsVisible(boolean flag) {
         commonButton.setVisible(flag);
@@ -683,8 +702,8 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         channel = card.getBasicChannel();
                         System.out.println("Reader: " + cardTerminal.getName());
                         System.out.println("ATR: " + HexUtils.bin2hex(card.getATR().getBytes()));
-                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
-                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
+//                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
+//                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
                         // GlobalPlatform specific
                         if (args.has(OPT_SDAID)) {
                             gp = GlobalPlatform.connect(channel, AID.fromString(args.valueOf(OPT_SDAID)));
@@ -693,7 +712,6 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             gp = GlobalPlatform.discover(channel);
                             // FIXME: would like to get AID from oracle as well.
                         }
-                        /////////////////
                         // Extract information
                         if (args.has(OPT_INFO)) {
                             GPData.dump(channel);
@@ -742,7 +760,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                                 } else {
                                     if (needsAuthentication(args)) {
                                         System.out.println("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
-                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
+                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes())).append(System.lineSeparator());
                                     }
                                     keyz = PlaintextKeys.fromMasterKey(GPData.getDefaultKey());
                                 }
@@ -785,13 +803,13 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             }
                             // IMPORTANT PLACE. Possibly brick the card now, if keys don't match.
                             gp.openSecureChannel(keys, null, 0, mode);
-                            if (args.has(OPT_LIST)) {
-                                //GPCommands.listRegistry(gp.getRegistry(), System.out, args.has(OPT_VERBOSE));
-                                listRegistry(gp.getRegistry(), statusMessage, args.has(OPT_VERBOSE));
-                            }
+                            listRegistry(gp.getRegistry(), statusMessage, args.has(OPT_VERBOSE));
+//                            if (args.has(OPT_LIST)) {
+//                                //GPCommands.listRegistry(gp.getRegistry(), System.out, args.has(OPT_VERBOSE));
+//                                listRegistry(gp.getRegistry(), statusMessage, args.has(OPT_VERBOSE));
+//                            }
 
                         }
-                        /////////////////
                         return true;
                     } catch (CardException e) {
                         System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
@@ -816,7 +834,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
         return false;
     }
 
-    private boolean installedApplet(File capfile, StringBuilder statusMessage) {
+    private boolean installApplet(File capfile, StringBuilder statusMessage) {
         String reader = cardReaderListComboBox.getSelectedItem().toString();
         if (reader != null && reader.length() > 0) {
             try {
@@ -834,8 +852,8 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         channel = card.getBasicChannel();
                         System.out.println("Reader: " + cardTerminal.getName());
                         System.out.println("ATR: " + HexUtils.bin2hex(card.getATR().getBytes()));
-                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
-                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
+//                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
+//                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
                         // GlobalPlatform specific
                         if (args.has(OPT_SDAID)) {
                             gp = GlobalPlatform.connect(channel, AID.fromString(args.valueOf(OPT_SDAID)));
@@ -893,7 +911,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                                 } else {
                                     if (needsAuthentication(args)) {
                                         System.out.println("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
-                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
+                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes())).append(System.lineSeparator());
                                     }
                                     keyz = PlaintextKeys.fromMasterKey(GPData.getDefaultKey());
                                 }
@@ -999,7 +1017,6 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             if (args.has(OPT_FORCE) && (reg.getDefaultSelectedAID() != null && privs.has(GPRegistryEntry.Privilege.CardReset))) {
                                 gp.deleteAID(reg.getDefaultSelectedAID(), false);
                             }
-
                             // warn
                             if (gp.getRegistry().allAppletAIDs().contains(instanceaid)) {
                                 System.err.println("WARNING: Applet " + instanceaid + " already present on card");
@@ -1007,8 +1024,9 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             }
 
                             // shoot
+                            //statusMessage.append("Installing ").append(HexUtils.bin2hex(appaid.getBytes())).append(" Applet...").append(System.lineSeparator());
                             gp.installAndMakeSelectable(instcap.getPackageAID(), appaid, instanceaid, privs, getInstParams(args), null);
-
+                            statusMessage.append("Applet ").append(HexUtils.bin2hex(appaid.getBytes())).append(" installed!!!").append(System.lineSeparator());
                             //}
                         }
                         /////////////////
@@ -1074,8 +1092,8 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         channel = card.getBasicChannel();
                         System.out.println("Reader: " + cardTerminal.getName());
                         System.out.println("ATR: " + HexUtils.bin2hex(card.getATR().getBytes()));
-                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
-                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
+//                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
+//                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
                         // GlobalPlatform specific
                         if (args.has(OPT_SDAID)) {
                             gp = GlobalPlatform.connect(channel, AID.fromString(args.valueOf(OPT_SDAID)));
@@ -1133,7 +1151,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                                 } else {
                                     if (needsAuthentication(args)) {
                                         System.out.println("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
-                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
+                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes())).append(System.lineSeparator());
                                     }
                                     keyz = PlaintextKeys.fromMasterKey(GPData.getDefaultKey());
                                 }
@@ -1180,8 +1198,8 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             for (AID aid : reg.allAIDs()) {
                                 aidList.add(aid.toString());
                             }
+                            statusMessage.append("AIDs:").append(aidList.toString()).append(System.lineSeparator());
                         }
-                        /////////////////
                         return true;
                     } catch (CardException e) {
                         System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
@@ -1224,8 +1242,8 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         channel = card.getBasicChannel();
                         System.out.println("Reader: " + cardTerminal.getName());
                         System.out.println("ATR: " + HexUtils.bin2hex(card.getATR().getBytes()));
-                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
-                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
+//                        statusMessage.append("Reader: ").append(cardTerminal.getName()).append(System.lineSeparator())
+//                                .append("ATR: ").append(HexUtils.bin2hex(card.getATR().getBytes())).append(System.lineSeparator());
                         // GlobalPlatform specific
                         if (args.has(OPT_SDAID)) {
                             gp = GlobalPlatform.connect(channel, AID.fromString(args.valueOf(OPT_SDAID)));
@@ -1283,7 +1301,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                                 } else {
                                     if (needsAuthentication(args)) {
                                         System.out.println("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
-                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
+                                        statusMessage.append("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes())).append(System.lineSeparator());
                                     }
                                     keyz = PlaintextKeys.fromMasterKey(GPData.getDefaultKey());
                                 }
@@ -1329,7 +1347,10 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             GPRegistry reg = gp.getRegistry();
                             try {
                                 // If the AID represents a package or otherwise force is enabled.
+                                //statusMessage.append("Deleting ").append(commonComboBox.getSelectedItem().toString()).append(" Applet...").append(System.lineSeparator());
                                 gp.deleteAID(aid, reg.allPackageAIDs().contains(aid) || args.has(OPT_FORCE));
+                                System.out.println("Applet deleted!!!");
+                                statusMessage.append("Applet deleted!!!").append(System.lineSeparator());
                             } catch (GPException e) {
                                 if (!gp.getRegistry().allAIDs().contains(aid)) {
                                     System.err.println("Could not delete AID (not present on card): " + aid);
@@ -1492,6 +1513,29 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
             }
         }
         return false;
+    }
+    
+    private void updateTextArea(final String message,final boolean append){
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                if(append){
+                    statusTextArea.append(message);
+                }else{
+                    statusTextArea.setText(message);
+                }
+                
+            }
+        });
+//        java.awt.EventQueue.invokeLater(new Runnable() {
+//            public void run() {
+//                if(append){
+//                    statusTextArea.append(message);
+//                }else{
+//                    statusTextArea.setText(message);
+//                }
+//                
+//            }
+//        });
     }
 
     /**
