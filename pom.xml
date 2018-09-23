@@ -38,8 +38,9 @@
     <dependency>
         <groupId>com.github.martinpaljak</groupId>
         <artifactId>globalplatformpro</artifactId>
-        <version>0.3.10-rc12</version>
+        <version>18.09.14</version>
     </dependency>
+
 
     <!-- https://mvnrepository.com/artifact/org.eclipse.jgit/org.eclipse.jgit -->
     <dependency>
@@ -101,6 +102,15 @@
         <artifactId>ber-tlv</artifactId>
         <version>1.0-8</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc -->
+    <dependency>
+        <groupId>org.xerial</groupId>
+        <artifactId>sqlite-jdbc</artifactId>
+        <version>3.23.1</version>
+    </dependency>
+
+
+
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
