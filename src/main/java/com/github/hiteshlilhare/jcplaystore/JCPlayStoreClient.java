@@ -14,13 +14,20 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import javax.crypto.Cipher;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
@@ -33,15 +40,22 @@ import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.filechooser.FileSystemView;
 import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
-import pro.javacard.gp.AID;
-import pro.javacard.gp.CAPFile;
-import pro.javacard.gp.GPCommands;
+import pro.javacard.AID;
+import pro.javacard.CAPFile;
 import pro.javacard.gp.GPData;
+import static pro.javacard.gp.GPData.CPLC.toDateFailsafe;
+import static pro.javacard.gp.GPData.fetchCPLC;
+import static pro.javacard.gp.GPData.fetchKeyInfoTemplate;
+import static pro.javacard.gp.GPData.getData;
+import static pro.javacard.gp.GPData.pretty_print_card_capabilities;
+import static pro.javacard.gp.GPData.pretty_print_card_data;
+import static pro.javacard.gp.GPData.pretty_print_key_template;
+import pro.javacard.gp.GPDataException;
 import pro.javacard.gp.GPException;
 import pro.javacard.gp.GPKey;
 import pro.javacard.gp.GPRegistry;
@@ -55,8 +69,10 @@ import pro.javacard.gp.GPUtils;
 import pro.javacard.gp.GlobalPlatform;
 import pro.javacard.gp.GlobalPlatform.GPSpec;
 import pro.javacard.gp.PlaintextKeys;
+import static pro.javacard.gp.PlaintextKeys.Diversification.EMV;
+import static pro.javacard.gp.PlaintextKeys.Diversification.KDF3;
+import static pro.javacard.gp.PlaintextKeys.Diversification.VISA2;
 import pro.javacard.gp.PythiaKeys;
-import static pro.javacard.gp.PlaintextKeys.Diversification.*;
 
 /**
  *
@@ -150,6 +166,14 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
     private final static String CMD_DELETE = "Delete";
     private String[] commandList = new String[]{CMD_CONNECT, CMD_LIST, CMD_INSTALL, CMD_DELETE};
 
+    private final static String DEF_AID_COMBO_TXT = "<Please provide AID>";
+    private final static String DEF_CAP_FILE_COMBO_TXT = "<Please provide CAP file path>";
+
+    // Database related constants.
+    private final static String JC_APP_DIR = "JCAPPStore";
+    private final static String JC_DB_FILE = "jcsqlite.db";
+    private final static String DB_URL = "jdbc:sqlite:" + FileSystemView.getFileSystemView().getDefaultDirectory() + "/" + JC_APP_DIR + "/" + JC_DB_FILE;
+
     /**
      * Creates new form JCPlayStoreClient
      */
@@ -160,6 +184,13 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
             // handle exception
+        }
+        //Code for creating and setting Java Card Applet files.
+        File appStoreDir = new File(FileSystemView.getFileSystemView().getDefaultDirectory() + "/" + JC_APP_DIR);
+        if (!appStoreDir.exists() || appStoreDir.isFile()) {
+            if (!appStoreDir.mkdir()) {
+                JOptionPane.showMessageDialog(null, "Unable to create local App Store directory.", "JCPlayStore", JOptionPane.INFORMATION_MESSAGE);
+            }
         }
         try {
             args = parseArguments(new String[]{"--list"});
@@ -200,20 +231,230 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     System.out.println((term.isCardPresent() ? "[*] " : "[ ] ") + term.getName());
                 }
             } catch (NoSuchAlgorithmException ex) {
+                JOptionPane.showMessageDialog(null, ex.getMessage(), "Start", JOptionPane.INFORMATION_MESSAGE);
                 Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
             } catch (CardException ex) {
+                JOptionPane.showMessageDialog(null, ex.getMessage(), "Start", JOptionPane.INFORMATION_MESSAGE);
                 Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
             }
             //Initialize UI related componenets.
+            //setLocationRelativeTo(null);
             initComponents();
             debugRadioButtonMenuItem.setSelected(true);
             commandComboBox.setSelectedIndex(0);
             setInstallAppletWidgetsVisible(false);
             //warningRadioButtonMenuItem.setSelected(true);
+            connectAndCreateTableIfNotExists();
+            insertCardDetailsIfNotExists();
         } catch (IOException ex) {
             Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
             fail("IOException: " + ex.getMessage());
         }
+    }
+
+    public static void connect() {
+        Connection conn = null;
+        try {
+            // create a connection to the database
+            conn = DriverManager.getConnection(DB_URL);
+            System.out.println("Connection to SQLite has been established.");
+            Statement statement = conn.createStatement();
+            statement.setQueryTimeout(30);  // set timeout to 30 sec.
+
+            statement.executeUpdate("drop table if exists person");
+            statement.executeUpdate("create table person (id integer, name string)");
+            statement.executeUpdate("insert into person values(1, 'leo')");
+            statement.executeUpdate("insert into person values(2, 'yui')");
+            ResultSet rs = statement.executeQuery("select * from person");
+            while (rs.next()) {
+                // read the result set
+                System.out.println("name = " + rs.getString("name"));
+                System.out.println("id = " + rs.getInt("id"));
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
+    }
+
+    public void connectAndCreateTableIfNotExists() {
+        Connection conn = null;
+        try {
+            // create a connection to the database
+            conn = DriverManager.getConnection(DB_URL);
+            System.out.println("Connection to SQLite has been established.");
+            Statement statement = conn.createStatement();
+            int ret = statement.executeUpdate("create table if not exists card_details (ICFabricator varchar(50),ICSerialNumber varchar(20),ICType varchar(20),OperatingSystemID varchar(20),OperatingSystemReleaseDate varchar(20),OperatingSystemReleaseLevel varchar(20),ICFabricationDate varchar(20),ICBatchIdentifier varchar(20),ICModuleFabricator varchar(20),ICModulePackagingDate varchar(20),ICCManufacturer varchar(20),ICEmbeddingDate varchar(20),ICPrePersonalizer varchar(20),ICPrePersonalizationEquipmentDate varchar(20),ICPrePersonalizationEquipmentID varchar(20),ICPersonalizer varchar(20),ICPersonalizationDate varchar(20),ICPersonalizationEquipmentID varchar(20),ATR varchar(50),INN varchar(50),CIN varchar(50),CardData varchar(200),CardCapability varchar(200),KeyInfo varchar(200),PRIMARY KEY (ICFabricator,ICSerialNumber,ICType))");
+            if (ret == 0) {
+                System.out.println("card_details table created successfully!!!");
+            } else {
+                System.out.println("Failed to create card_details table ");
+            }
+            ret = statement.executeUpdate("create table if not exists card_app (ICFabricator varchar(50),ICSerialNumber varchar(20),ICType varchar(20),AID varchar(50),Version varchar(10),Description varchar(100),PRIMARY KEY (AID,ICFabricator,ICSerialNumber,ICType),FOREIGN KEY (ICFabricator,ICSerialNumber,ICType) REFERENCES card_details (ICFabricator,ICSerialNumber,ICType) ON DELETE CASCADE ON UPDATE NO ACTION)");
+            if (ret == 0) {
+                System.out.println("card_app table created successfully!!!");
+            } else {
+                System.out.println("Failed to create card_app table ");
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
+    }
+
+    public void insertCardDetailsIfNotExists() {
+        Connection conn = null;
+        try {
+            // create a connection to the database
+            CardDetails cardDetails = getCardDetails(new StringBuilder());
+            GPData.CPLC cplc = cardDetails.getCplc();
+            if (cplc == null) {
+                System.out.println("No CPLC data");
+                return;
+            }
+            String selectQuery = "select * from card_details where ICFabricator='" + HexUtils.bin2hex(cplc.get(GPData.CPLC.Field.ICFabricator)) + "' and ICSerialNumber='" + HexUtils.bin2hex(cplc.get(GPData.CPLC.Field.ICSerialNumber)) + "' and ICType='" + HexUtils.bin2hex(cplc.get(GPData.CPLC.Field.ICType)) + "'";
+            conn = DriverManager.getConnection(DB_URL);
+            System.out.println("Connection to SQLite has been established.");
+            Statement statement = conn.createStatement();
+            ResultSet rs = statement.executeQuery(selectQuery);
+            if (rs.next()) {
+                System.out.println("Card details already present:" + rs.getString(GPData.CPLC.Field.ICFabricationDate.toString()));
+            } else {
+                String strColNames = Arrays.asList(CardDetailsTableFields.values()).stream().map((CardDetailsTableFields i) -> i.toString()).collect(Collectors.joining(","));
+                String strColValues = Arrays.asList(GPData.CPLC.Field.values()).stream().map((GPData.CPLC.Field i) -> (i.toString().endsWith("Date") ? "'" + toDateFailsafe(cplc.get(i)) + "'" : "'" + HexUtils.bin2hex(cplc.get(i)) + "'")).collect(Collectors.joining(", "));
+                strColValues += ", '" + HexUtils.bin2hex(cardDetails.getAtr().getBytes()) + "', "
+                        + (cardDetails.getInn() != null ? "'" + HexUtils.bin2hex(cardDetails.getInn()) + "'" : null) + ", "
+                        + (cardDetails.getCin() != null ? "'" + HexUtils.bin2hex(cardDetails.getCin()) + "'" : null) + ", "
+                        + (cardDetails.getCardData() != null ? "'" + HexUtils.bin2hex(cardDetails.getCardData()) + "'" : null) + ", "
+                        + (cardDetails.getCardCapabilities() != null ? "'" + HexUtils.bin2hex(cardDetails.getCardCapabilities()) + "'" : null) + ", "
+                        + (cardDetails.getKeyInfo() != null ? "'" + HexUtils.bin2hex(cardDetails.getKeyInfo()) + "'" : null);
+                String insertQuery = "insert into card_details (" + strColNames + ") values (" + strColValues + ")";
+                System.out.println(insertQuery);
+                int ret = statement.executeUpdate(insertQuery);
+                if (ret == 1) {
+                    System.out.println("Record inserted into card_details table successfully!!!");
+                } else {
+                    System.out.println("Failed to insert record");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println(ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Card Production Life Cycle Data (CPLC data)
+     */
+    private CardDetails getCardDetails(StringBuilder statusMessage) {
+        String reader = cardReaderListComboBox.getSelectedItem().toString();
+        if (reader != null && reader.length() > 0) {
+            try {
+                CardTerminal cardTerminal = cardReaderMap.get(reader);
+                if (cardTerminal.isCardPresent()) {
+                    System.out.println("Connect to card");
+                    //statusMessage.append("Connect to card").append(System.lineSeparator());
+                    Card card = null;
+                    CardChannel channel = null;
+                    try {
+                        card = cardTerminal.connect("*");
+                        // We use apdu4j which by default uses jnasmartcardio
+                        // which uses real SCardBeginTransaction
+                        card.beginExclusive();
+                        channel = card.getBasicChannel();
+                        CardDetails cardDetails = new CardDetails();
+                        cardDetails.setAtr(card.getATR());
+                        setCardDetails(channel, cardDetails);
+                        return cardDetails;
+                    } catch (CardException e) {
+                        System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
+                        statusMessage.append("Could not connect to ").append(cardTerminal.getName()).append(": ").append(TerminalManager.getExceptionMessage(e)).append(System.lineSeparator());
+                    } catch (GPException ex) {
+                        Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
+                    } finally {
+                        if (card != null) {
+                            card.endExclusive();
+                            card.disconnect(true);
+                            card = null;
+                        }
+                    }
+                } else {
+                    System.out.println("Card is not present!!!");
+                    statusMessage.append("Card is not present!!!").append(System.lineSeparator());
+                }
+            } catch (CardException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "List", JOptionPane.INFORMATION_MESSAGE);
+                Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        return null;
+    }
+
+    public void setCardDetails(CardChannel channel, CardDetails cardDetails) throws CardException, GPException {
+        byte[] cplc = fetchCPLC(channel);
+        if (cplc != null) {
+            cardDetails.setCplc(GPData.CPLC.fromBytes(cplc));
+        }
+        // IIN (issuer identification number)in the card manager
+        byte[] iin = getData(channel, 0x00, 0x42, "IIN", false);
+        if (iin != null) {
+            cardDetails.setInn(iin);
+        }
+        // CIN (card image number) in the card manager
+        byte[] cin = getData(channel, 0x00, 0x45, "CIN", false);
+        if (cin != null) {
+            cardDetails.setCin(cin);
+        }
+        // Print Card Data
+        byte[] cardData = getData(channel, 0x00, 0x66, "Card Data", false);
+        if (cardData != null) {
+            cardDetails.setCardData(cardData);
+        }
+        // Print Card Capabilities
+        byte[] cardCapabilities = getData(channel, 0x00, 0x67, "Card Capabilities", false);
+        if (cardCapabilities != null) {
+            cardDetails.setCardCapabilities(cardCapabilities);
+        }
+        // Print Key Info Template
+        byte[] keyInfo = fetchKeyInfoTemplate(channel);
+        if (keyInfo != null) {
+            cardDetails.setKeyInfo(keyInfo);
+        }
+    }
+
+    public static void pretty_print_cplc(byte[] data, PrintStream out) {
+        if (data == null || data.length == 0) {
+            out.println("NO CPLC");
+            return;
+        }
+        try {
+            GPData.CPLC cplc = GPData.CPLC.fromBytes(data);
+            out.println(cplc.toPrettyString());
+        } catch (GPDataException ex) {
+            Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
     }
 
     private static OptionSet parseArguments(String[] argv) throws IOException {
@@ -557,7 +798,17 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
     }//GEN-LAST:event_warningRadioButtonMenuItemItemStateChanged
 
     private void listCardReadersMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_listCardReadersMenuItemActionPerformed
+        updateCardReaderListComboBox();
+    }//GEN-LAST:event_listCardReadersMenuItemActionPerformed
+
+    private void updateCardReaderListComboBox() {
+        updateCardReaderMap();
+        cardReaderListComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(cardReaderMap.keySet().toArray(new String[cardReaderMap.size()])));
+    }
+
+    private void updateCardReaderMap() {
         try {
+            cardReaderMap.clear();
             final TerminalFactory tf;
             tf = TerminalManager.getTerminalFactory((String) args.valueOf(OPT_TERMINALS));
             CardTerminals terminals = tf.terminals();
@@ -572,9 +823,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
         } catch (CardException ex) {
             Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
         }
-        cardReaderListComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(cardReaderMap.keySet().toArray(new String[cardReaderMap.size()])));
-    }//GEN-LAST:event_listCardReadersMenuItemActionPerformed
-
+    }
     private void goButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_goButtonActionPerformed
         //updateTextArea("", false);
         ///////
@@ -583,7 +832,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
 //                statusTextArea.setText("");
 //            }
 //        });
-        
+
         //////
         String command = commandComboBox.getSelectedItem().toString();
         if (command != null && command.length() > 0) {
@@ -592,6 +841,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     StringBuilder statusMessage = new StringBuilder();
                     connectToCard(statusMessage);
                     statusTextArea.setText(statusMessage.toString());
+                    getCardDetails(new StringBuilder());
                     break;
                 case CMD_LIST:
                     statusMessage = new StringBuilder();
@@ -599,10 +849,15 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     statusTextArea.setText(statusMessage.toString());
                     break;
                 case CMD_INSTALL:
+                    if (commonComboBox.getSelectedItem() == null || commonComboBox.getSelectedItem().toString().length() == 0
+                            || commonComboBox.getSelectedItem().toString().equals(DEF_CAP_FILE_COMBO_TXT)) {
+                        JOptionPane.showMessageDialog(this, "Please provice correct CAP file path.", "Delete", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
                     statusMessage = new StringBuilder();
                     File capfile = new File(commonComboBox.getSelectedItem().toString());
                     if (capfile.exists() && capfile.isFile()) {
-                        statusTextArea.setText("Installing Applet..." +  System.lineSeparator());
+                        statusTextArea.setText("Installing Applet..." + System.lineSeparator());
                         //updateTextArea("Installing Applet..." +  System.lineSeparator(), false);
                         installApplet(capfile, statusMessage);
                         statusTextArea.append(statusMessage.toString());
@@ -611,6 +866,11 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     }
                     break;
                 case CMD_DELETE:
+                    if (commonComboBox.getSelectedItem() == null || commonComboBox.getSelectedItem().toString().length() == 0
+                            || commonComboBox.getSelectedItem().toString().equals(DEF_AID_COMBO_TXT)) {
+                        JOptionPane.showMessageDialog(this, "Please provide proper AID.", "Delete", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
                     statusMessage = new StringBuilder();
                     AID aid = AID.fromString(commonComboBox.getSelectedItem().toString());
                     //statusMessage.append("Deleting ").append(commonComboBox.getSelectedItem().toString()).append(" Applet...").append(System.lineSeparator());
@@ -633,7 +893,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
             if (evt.getItem().toString().equals(CMD_INSTALL)) {
                 commonButton.setText("Select CAP File");
                 commonLabel.setText("CAP File: ");
-                commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{"<Please provide CAP file path>"}));
+                commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{DEF_CAP_FILE_COMBO_TXT}));
                 commonComboBox.setEnabled(false);
                 setInstallAppletWidgetsVisible(true);
             } else if (evt.getItem().toString().equals(CMD_DELETE)) {
@@ -641,7 +901,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                 commonButton.setText("List Installed Applets");
                 commonLabel.setText("AID: ");
                 commonComboBox.setEnabled(true);
-                commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{"<Please provide AID>"}));
+                commonComboBox.setModel(new javax.swing.DefaultComboBoxModel<>(new String[]{DEF_AID_COMBO_TXT}));
                 setInstallAppletWidgetsVisible(true);
             } else {
                 setInstallAppletWidgetsVisible(false);
@@ -653,7 +913,20 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
         // TODO add your handling code here:
         if (((JButton) evt.getSource()).getText().equals("Select CAP File")) {
             // create an object of JFileChooser class 
-            JFileChooser fileChooser = new JFileChooser(FileSystemView.getFileSystemView().getHomeDirectory());
+            JFileChooser fileChooser = new JFileChooser(FileSystemView.getFileSystemView().getDefaultDirectory());
+            File appStoreDir = new File(FileSystemView.getFileSystemView().getDefaultDirectory() + "/JCAPPStore");
+            if (!appStoreDir.exists() || appStoreDir.isFile()) {
+                if (appStoreDir.mkdir()) {
+                    fileChooser = new JFileChooser(FileSystemView.getFileSystemView().getDefaultDirectory() + "/JCAPPStore");
+                } else {
+                    System.out.println("Unable to create local App Store directory.");
+                }
+            } else {
+                fileChooser = new JFileChooser(FileSystemView.getFileSystemView().getDefaultDirectory() + "/JCAPPStore");
+            }
+            fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            fileChooser.addChoosableFileFilter(new FileNameExtensionFilter("Java Card Applets", "cap"));
+            fileChooser.setAcceptAllFileFilterUsed(false);
             // invoke the showsOpenDialog function to show the save dialog 
             int r = fileChooser.showOpenDialog(null);
             // if the user selects a file 
@@ -803,14 +1076,15 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             }
                             // IMPORTANT PLACE. Possibly brick the card now, if keys don't match.
                             gp.openSecureChannel(keys, null, 0, mode);
-                            listRegistry(gp.getRegistry(), statusMessage, args.has(OPT_VERBOSE));
+                            listRegistry(gp.getRegistry(), statusMessage, true);
+                            return true;
+                            //listRegistry(gp.getRegistry(), statusMessage, args.has(OPT_VERBOSE));
 //                            if (args.has(OPT_LIST)) {
 //                                //GPCommands.listRegistry(gp.getRegistry(), System.out, args.has(OPT_VERBOSE));
 //                                listRegistry(gp.getRegistry(), statusMessage, args.has(OPT_VERBOSE));
 //                            }
 
                         }
-                        return true;
                     } catch (CardException e) {
                         System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
                         statusMessage.append("Could not connect to ").append(cardTerminal.getName()).append(": ").append(TerminalManager.getExceptionMessage(e)).append(System.lineSeparator());
@@ -828,6 +1102,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     statusMessage.append("Card is not present!!!").append(System.lineSeparator());
                 }
             } catch (CardException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "List", JOptionPane.INFORMATION_MESSAGE);
                 Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -958,7 +1233,8 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             //if (args.has(OPT_INSTALL)) {
                             //final File capfile;
                             //capfile = (File) args.valueOf(OPT_INSTALL);
-                            CAPFile instcap = new CAPFile(new FileInputStream(capfile));
+                            CAPFile instcap = CAPFile.fromStream(new FileInputStream(capfile));
+
                             if (args.has(OPT_VERBOSE)) {
                                 instcap.dump(System.out);
                             }
@@ -1032,14 +1308,20 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         /////////////////
                         return true;
                     } catch (CardException e) {
+                        JOptionPane.showMessageDialog(this, e.getMessage(), "Install", JOptionPane.INFORMATION_MESSAGE);
                         System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
                         statusMessage.append("Could not connect to ").append(cardTerminal.getName()).append(": ").append(TerminalManager.getExceptionMessage(e)).append(System.lineSeparator());
                     } catch (GPException ex) {
+                        JOptionPane.showMessageDialog(this, ex.getMessage(), "Install", JOptionPane.INFORMATION_MESSAGE);
                         Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
                     } catch (FileNotFoundException ex) {
+                        JOptionPane.showMessageDialog(this, ex.getMessage(), "Install", JOptionPane.INFORMATION_MESSAGE);
                         Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
                     } catch (IOException ex) {
+                        JOptionPane.showMessageDialog(this, ex.getMessage(), "Install", JOptionPane.INFORMATION_MESSAGE);
                         Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(this, e.getMessage(), "Install", JOptionPane.INFORMATION_MESSAGE);
                     } finally {
                         if (card != null) {
                             card.endExclusive();
@@ -1195,16 +1477,23 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             // IMPORTANT PLACE. Possibly brick the card now, if keys don't match.
                             gp.openSecureChannel(keys, null, 0, mode);
                             GPRegistry reg = gp.getRegistry();
-                            for (AID aid : reg.allAIDs()) {
-                                aidList.add(aid.toString());
+                            for (GPRegistryEntry e : reg) {
+                                if (e.getType() != GPRegistryEntry.Kind.IssuerSecurityDomain) {
+                                    aidList.add(e.getAID().toString());
+                                }
                             }
+//                            for (AID aid : reg.allAIDs()) {
+//                                aidList.add(aid.toString());
+//                            }
                             statusMessage.append("AIDs:").append(aidList.toString()).append(System.lineSeparator());
                         }
                         return true;
                     } catch (CardException e) {
+                        JOptionPane.showMessageDialog(this, e.getMessage(), "Delete", JOptionPane.INFORMATION_MESSAGE);
                         System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
                         statusMessage.append("Could not connect to ").append(cardTerminal.getName()).append(": ").append(TerminalManager.getExceptionMessage(e)).append(System.lineSeparator());
                     } catch (GPException ex) {
+                        JOptionPane.showMessageDialog(this, ex.getMessage(), "Delete", JOptionPane.INFORMATION_MESSAGE);
                         Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
                         if (card != null) {
@@ -1348,9 +1637,39 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                             try {
                                 // If the AID represents a package or otherwise force is enabled.
                                 //statusMessage.append("Deleting ").append(commonComboBox.getSelectedItem().toString()).append(" Applet...").append(System.lineSeparator());
-                                gp.deleteAID(aid, reg.allPackageAIDs().contains(aid) || args.has(OPT_FORCE));
-                                System.out.println("Applet deleted!!!");
-                                statusMessage.append("Applet deleted!!!").append(System.lineSeparator());
+                                for (GPRegistryEntry e : reg) {
+                                    if (e.getAID().toString().equals(aid.toString())) {
+                                        ///////////////////
+                                        if (e.getType() == GPRegistryEntry.Kind.ExecutableLoadFile) {
+                                            StringBuilder msg = new StringBuilder();
+                                            GPRegistryEntryPkg pkg = (GPRegistryEntryPkg) e;
+                                            if (pkg.getModules().size() > 0) {
+                                                msg.append("Selected Package AID ");
+                                                if (pkg.getVersion() != null) {
+                                                    msg.append("Version: ").append(pkg.getVersionString()).append(" ");
+                                                }
+                                                msg.append("contains following applications").append(System.lineSeparator());
+                                                for (AID a : pkg.getModules()) {
+                                                    msg.append(GPUtils.byteArrayToReadableString(a.getBytes())).append(HexUtils.bin2hex(a.getBytes())).append(System.lineSeparator());
+                                                }
+                                                msg.append("Would you like to delete?");
+                                                int option = JOptionPane.showConfirmDialog(this, msg.toString(), "Delete", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                                                if (option == JOptionPane.YES_OPTION) {
+                                                    gp.deleteAID(aid, true);
+                                                }
+                                            } else {
+                                                gp.deleteAID(aid, true);
+                                            }
+
+                                        } else {
+                                            gp.deleteAID(aid, true);
+                                        }
+                                        ///////////////////
+                                    }
+                                }
+                                //gp.deleteAID(aid, reg.allPackageAIDs().contains(aid) || args.has(OPT_FORCE));
+                                System.out.println("Deleted successfully!!!");
+                                statusMessage.append("Deleted successfully!!!").append(System.lineSeparator());
                             } catch (GPException e) {
                                 if (!gp.getRegistry().allAIDs().contains(aid)) {
                                     System.err.println("Could not delete AID (not present on card): " + aid);
@@ -1370,9 +1689,11 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                         /////////////////
                         return true;
                     } catch (CardException e) {
+                        JOptionPane.showMessageDialog(this, e.getMessage(), "Delete", JOptionPane.INFORMATION_MESSAGE);
                         System.err.println("Could not connect to " + cardTerminal.getName() + ": " + TerminalManager.getExceptionMessage(e));
                         statusMessage.append("Could not connect to ").append(cardTerminal.getName()).append(": ").append(TerminalManager.getExceptionMessage(e)).append(System.lineSeparator());
                     } catch (GPException ex) {
+                        JOptionPane.showMessageDialog(this, ex.getMessage(), "Delete", JOptionPane.INFORMATION_MESSAGE);
                         Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
                     } finally {
                         if (card != null) {
@@ -1386,6 +1707,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     statusMessage.append("Card is not present!!!").append(System.lineSeparator());
                 }
             } catch (CardException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Delete", JOptionPane.INFORMATION_MESSAGE);
                 Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1418,14 +1740,15 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
     }
 
     public static void listRegistry(GPRegistry reg, StringBuilder out, boolean verbose) {
-        String tab = "     ";
+        String tab = "";//5 spaces
         for (GPRegistryEntry e : reg) {
             AID aid = e.getAID();
-            out.append(e.getType().toShortString() + ": " + HexUtils.bin2hex(aid.getBytes()) + " (" + e.getLifeCycleString() + ")");
+            System.out.println(e.getType().toShortString() + ": " + HexUtils.bin2hex(aid.getBytes()) + " (" + e.getLifeCycleString() + ")");
+            out.append(e.getType().toShortString() + ": " + HexUtils.bin2hex(aid.getBytes()) + " (" + e.getLifeCycleString() + ")").append(System.lineSeparator());
             if (e.getType() != GPRegistryEntry.Kind.IssuerSecurityDomain && verbose) {
                 out.append(" (" + GPUtils.byteArrayToReadableString(aid.getBytes()) + ")").append(System.lineSeparator());
             } else {
-                out.append(System.lineSeparator());
+                //out.append(System.lineSeparator());
             }
 
             if (e.getDomain() != null) {
@@ -1437,11 +1760,11 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     out.append(tab + "Version: " + pkg.getVersionString()).append(System.lineSeparator());
                 }
                 for (AID a : pkg.getModules()) {
-                    out.append(tab + "Applet:  " + HexUtils.bin2hex(a.getBytes()));
+                    out.append(tab + "Applet:  " + HexUtils.bin2hex(a.getBytes())).append(System.lineSeparator());
                     if (verbose) {
                         out.append(" (" + GPUtils.byteArrayToReadableString(a.getBytes()) + ")").append(System.lineSeparator());
                     } else {
-                        out.append(System.lineSeparator());
+                        //out.append(System.lineSeparator());
                     }
                 }
             } else {
@@ -1494,6 +1817,7 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
                     statusMessage.append("Card is not present!!!").append(System.lineSeparator());
                 }
             } catch (CardException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Connect", JOptionPane.INFORMATION_MESSAGE);
                 Logger.getLogger(JCPlayStoreClient.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1514,16 +1838,16 @@ public class JCPlayStoreClient extends javax.swing.JFrame {
         }
         return false;
     }
-    
-    private void updateTextArea(final String message,final boolean append){
+
+    private void updateTextArea(final String message, final boolean append) {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                if(append){
+                if (append) {
                     statusTextArea.append(message);
-                }else{
+                } else {
                     statusTextArea.setText(message);
                 }
-                
+
             }
         });
 //        java.awt.EventQueue.invokeLater(new Runnable() {
