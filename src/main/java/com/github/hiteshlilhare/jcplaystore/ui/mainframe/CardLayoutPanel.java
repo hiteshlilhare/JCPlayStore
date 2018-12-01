@@ -5,6 +5,7 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe;
 
+import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardLayoutSelectionChangeListener;
@@ -44,16 +45,28 @@ public class CardLayoutPanel extends javax.swing.JPanel {
         //Release monitor.
         ReleaseMonitorTimerTask.getInstance()
                 .setRemoteRepositoryListener(appCartsPanel);
-        
+
         appDetailsPanel = new AppDetailsPanel();
-        
+
         add(APP_CARTS, appCartsPanel);
         add(APP_DETAILS, appDetailsPanel);
         appCartsPanel.setCardLayoutSelectionChangeListener(
                 new CardLayoutSelectionChangeListener() {
             @Override
-            public void selectCard(String cardName, CardAppDetail cardAppDetail) {
+            public void selectCard(String cardName,
+                    CardAppDetail cardAppDetail) {
                 appDetailsPanel.setCardAppDetail(cardAppDetail);
+                panelLayout.show(CardLayoutPanel.this, cardName);
+            }
+
+            @Override
+            public void selectCard(String cardName) {
+            }
+
+            @Override
+            public void selectCard(String cardName,
+                    AppReleaseDetails appReleaseDetails) {
+                appDetailsPanel.setAppReleaseDetails(appReleaseDetails);
                 panelLayout.show(CardLayoutPanel.this, cardName);
             }
         });
@@ -61,13 +74,21 @@ public class CardLayoutPanel extends javax.swing.JPanel {
                 new CardLayoutSelectionChangeListener() {
             @Override
             public void selectCard(String cardName, CardAppDetail cardAppDetail) {
+            }
+
+            @Override
+            public void selectCard(String cardName) {
                 panelLayout.show(CardLayoutPanel.this, cardName);
             }
+
+            @Override
+            public void selectCard(String cardName, AppReleaseDetails appReleaseDetails) {
+            }
         });
-        
+
     }
-    
-    public void showNoReaderPanle(){
+
+    public void showNoReaderPanle() {
         appCartsPanel.showNoReaderPanle();
     }
 

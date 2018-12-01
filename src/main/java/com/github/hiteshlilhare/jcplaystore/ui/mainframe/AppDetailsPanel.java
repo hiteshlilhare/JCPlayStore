@@ -5,6 +5,7 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe;
 
+import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardLayoutSelectionChangeListener;
 import java.awt.Dimension;
@@ -73,12 +74,12 @@ public class AppDetailsPanel extends javax.swing.JPanel {
         // TODO add your handling code here:
         if(cardLayoutSelectionChangeListener!=null){
             if(SwingUtilities.isEventDispatchThread()){
-                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_CARTS,null);
+                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_CARTS);
             }else{
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
                     public void run() {
-                        cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_CARTS,null);
+                        cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_CARTS);
                     }
                 });
             }
@@ -94,8 +95,13 @@ public class AppDetailsPanel extends javax.swing.JPanel {
         this.cardAppDetail = cardAppDetail;
         System.out.println(cardAppDetail.toString());
     }
+    
+    public void setAppReleaseDetails(AppReleaseDetails appReleaseDetails){
+        this.appReleaseDetails = appReleaseDetails;
+    }
 
     private CardAppDetail cardAppDetail;
+    private AppReleaseDetails appReleaseDetails;
     private CardLayoutSelectionChangeListener cardLayoutSelectionChangeListener;
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel backButton;

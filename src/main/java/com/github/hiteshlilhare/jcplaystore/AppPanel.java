@@ -7,6 +7,7 @@ package com.github.hiteshlilhare.jcplaystore;
 
 import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
+import com.github.hiteshlilhare.jcplaystore.ui.mainframe.AppsCart;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.CardLayoutPanel;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.AppPanelActionListener;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardLayoutSelectionChangeListener;
@@ -46,6 +47,7 @@ public class AppPanel extends JPanel {
 
     public AppPanel(CardAppDetail cardAppDetail) {
         this.cardAppDetail = cardAppDetail;
+        cartId=AppsCart.ID.INSATLLED_APP;
         setOpaque(false);
         initComponents();
         initialize();
@@ -54,6 +56,7 @@ public class AppPanel extends JPanel {
     
     public AppPanel(AppReleaseDetails appReleaseDetails) {
         this.appReleaseDetails = appReleaseDetails;
+        cartId=AppsCart.ID.PLAYSTORE_APP;
         setOpaque(false);
         initComponents();
         initialize();
@@ -287,17 +290,16 @@ public class AppPanel extends JPanel {
 
     private void moreLabelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_moreLabelMouseClicked
         if (cardLayoutSelectionChangeListener != null) {
-            if (SwingUtilities.isEventDispatchThread()) {
-                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS, cardAppDetail);
-            } else {
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS, cardAppDetail);
-                    }
-                });
+            if(cartId == AppsCart.ID.INSATLLED_APP){
+                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS, 
+                        cardAppDetail);
+            }else if(cartId == AppsCart.ID.PLAYSTORE_APP){
+                System.out.println("cartId == AppsCart.ID.PLAYSTORE_APP");
+                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS, 
+                        appReleaseDetails);
+            }else if(cartId == AppsCart.ID.LOCAL_APP){
+                
             }
-
         }
     }//GEN-LAST:event_moreLabelMouseClicked
 
@@ -373,11 +375,22 @@ public class AppPanel extends JPanel {
         this.col_idx = col_idx;
     }
 
+    public AppsCart.ID getCartId() {
+        return cartId;
+    }
+
+    public void setCartId(AppsCart.ID cartId) {
+        this.cartId = cartId;
+    }
+    
+    
+
     private CardAppDetail cardAppDetail;
     private AppReleaseDetails appReleaseDetails;
     private CardLayoutSelectionChangeListener cardLayoutSelectionChangeListener;
     private ArrayList<AppPanelActionListener> appPanelActionListeners = new ArrayList<>();
     private int col_idx;
+    private AppsCart.ID cartId;
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel buttonPanel;
     private javax.swing.JButton deleteButton;
