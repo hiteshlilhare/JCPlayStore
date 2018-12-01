@@ -5,6 +5,7 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener;
 
+import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 
 /**
@@ -12,5 +13,7 @@ import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
  * @author Hitesh
  */
 public interface CardLayoutSelectionChangeListener {
+    public void selectCard(String cardName);
     public void selectCard(String cardName,CardAppDetail cardAppDetail);
+    public void selectCard(String cardName,AppReleaseDetails appReleaseDetails);
 }
