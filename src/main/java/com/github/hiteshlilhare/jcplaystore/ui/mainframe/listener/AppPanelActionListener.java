@@ -3,18 +3,13 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
-package com.github.hiteshlilhare.jcplaystore;
+package com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener;
 
 /**
  *
  * @author Hitesh
  */
-public enum CardAppTableFields {
-    ICFabricator,
-    ICSerialNumber,
-    ICType,
-    AID,
-    Version,
-    Description
+public interface AppPanelActionListener {
+
+    public void performAction(String action, String aid, String readerName);
 }

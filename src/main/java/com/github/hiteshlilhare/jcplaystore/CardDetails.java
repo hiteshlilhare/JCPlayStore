@@ -6,8 +6,6 @@
 package com.github.hiteshlilhare.jcplaystore;
 
 import javax.smartcardio.ATR;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import pro.javacard.gp.GPData;
 
 /**
@@ -15,11 +13,19 @@ import pro.javacard.gp.GPData;
  * @author Hitesh
  */
 public class CardDetails {
-    private static final Logger logger = LoggerFactory.getLogger(CardDetails.class);
+
+    /**
+     * Freshness of bean
+     */
+    private boolean fresh;
     /**
      * Answer To Reset.
      */
     private ATR atr;
+    /**
+     * ATR string
+     */
+    private String strATR;
     /**
      * Card Production Life Cycle Data (CPLC data)
      */
@@ -34,19 +40,35 @@ public class CardDetails {
      * Card Image Number
      */
     private byte[] cin;
-    
+
     private byte[] cardData;
-    
+
     private byte[] cardCapabilities;
-    
+
     private byte[] keyInfo;
+
+    public boolean isFresh() {
+        return fresh;
+    }
+
+    public void setFresh(boolean fresh) {
+        this.fresh = fresh;
+    }
 
     public ATR getAtr() {
         return atr;
     }
 
+    public String getATRString() {
+        return strATR;
+    }
+
     public void setAtr(ATR atr) {
         this.atr = atr;
+    }
+
+    public void setATRString(String strATR) {
+        this.strATR = strATR;
     }
 
     public GPData.CPLC getCplc() {
@@ -96,5 +118,5 @@ public class CardDetails {
     public void setKeyInfo(byte[] keyInfo) {
         this.keyInfo = keyInfo;
     }
-    
+
 }

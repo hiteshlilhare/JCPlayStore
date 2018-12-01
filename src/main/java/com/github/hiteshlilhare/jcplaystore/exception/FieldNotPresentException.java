@@ -3,18 +3,15 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
-package com.github.hiteshlilhare.jcplaystore;
+package com.github.hiteshlilhare.jcplaystore.exception;
 
 /**
  *
  * @author Hitesh
  */
-public enum CardAppTableFields {
-    ICFabricator,
-    ICSerialNumber,
-    ICType,
-    AID,
-    Version,
-    Description
+public class FieldNotPresentException extends Exception {
+
+    public FieldNotPresentException(String s) {
+        super(s);
+    }
 }
