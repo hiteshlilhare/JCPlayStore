@@ -39,10 +39,10 @@ public class DetachedSignatureProcessor {
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(DetachedSignatureProcessor.class);
     public static boolean verifySignature(
             String fileName,
-            String inputFileName,
+            String sigFileName,
             String keyFileName)
              {
-        try (InputStream in = new BufferedInputStream(new FileInputStream(inputFileName)); 
+        try (InputStream in = new BufferedInputStream(new FileInputStream(sigFileName)); 
                 InputStream keyIn = new BufferedInputStream(new FileInputStream(keyFileName))) {
             return verifySignature(fileName, in, keyIn);
         } catch (Exception ex) {
@@ -52,16 +52,16 @@ public class DetachedSignatureProcessor {
     }
 
     /*
-     * verify the signature in in against the file fileName.
+     * verify the signature sinIn against the file fileName.
      */
     private static boolean verifySignature(
             String fileName,
-            InputStream in,
+            InputStream sinIn,
             InputStream keyIn)
             throws Exception {
-        in = PGPUtil.getDecoderStream(in);
+        sinIn = PGPUtil.getDecoderStream(sinIn);
         
-        JcaPGPObjectFactory pgpFact = new JcaPGPObjectFactory(in);
+        JcaPGPObjectFactory pgpFact = new JcaPGPObjectFactory(sinIn);
         PGPSignatureList p3;
 
         Object o = pgpFact.nextObject();
@@ -160,6 +160,5 @@ public class DetachedSignatureProcessor {
         String fileName= JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_SOURCES_DIR + "/PKIApplet/PKIApplet.xml";
         String sigFileName= JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_SOURCES_DIR + "/PKIApplet/PKIApplet.xml.sig";
         verifySignature(fileName, sigFileName, pubKey);
-
     }
 }

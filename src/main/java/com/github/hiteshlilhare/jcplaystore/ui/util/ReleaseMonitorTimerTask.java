@@ -57,7 +57,7 @@ public class ReleaseMonitorTimerTask extends TimerTask {
     public void run() {
         try {
             String json = "{}";
-            String postResponse = Util.doPostRequest(Config.getRemoteRepoUrl(), json);
+            String postResponse = Util.doPostRequest(Util.APP_LIST_SERVICE, json);
             JsonParser jsonParser = new JsonParser();
             JsonObject objectFromString = jsonParser.parse(postResponse).getAsJsonObject();
             String status = objectFromString.get("Status").getAsString();

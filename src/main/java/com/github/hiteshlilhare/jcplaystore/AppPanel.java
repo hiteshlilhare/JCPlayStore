@@ -47,16 +47,16 @@ public class AppPanel extends JPanel {
 
     public AppPanel(CardAppDetail cardAppDetail) {
         this.cardAppDetail = cardAppDetail;
-        cartId=AppsCart.ID.INSATLLED_APP;
+        cartId = AppsCart.ID.INSATLLED_APP;
         setOpaque(false);
         initComponents();
         initialize();
         summaryTextArea.append(System.lineSeparator() + cardAppDetail.getAid());
     }
-    
+
     public AppPanel(AppReleaseDetails appReleaseDetails) {
         this.appReleaseDetails = appReleaseDetails;
-        cartId=AppsCart.ID.PLAYSTORE_APP;
+        cartId = AppsCart.ID.PLAYSTORE_APP;
         setOpaque(false);
         initComponents();
         initialize();
@@ -99,8 +99,8 @@ public class AppPanel extends JPanel {
     public void setCardAppDetail(CardAppDetail cardAppDetail) {
         this.cardAppDetail = cardAppDetail;
     }
-    
-    public void setAppReleaseDetails(AppReleaseDetails appReleaseDetails){
+
+    public void setAppReleaseDetails(AppReleaseDetails appReleaseDetails) {
         this.appReleaseDetails = appReleaseDetails;
     }
 
@@ -290,15 +290,14 @@ public class AppPanel extends JPanel {
 
     private void moreLabelMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_moreLabelMouseClicked
         if (cardLayoutSelectionChangeListener != null) {
-            if(cartId == AppsCart.ID.INSATLLED_APP){
-                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS, 
+            if (cartId == AppsCart.ID.INSATLLED_APP) {
+                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS,
                         cardAppDetail);
-            }else if(cartId == AppsCart.ID.PLAYSTORE_APP){
-                System.out.println("cartId == AppsCart.ID.PLAYSTORE_APP");
-                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS, 
+            } else if (cartId == AppsCart.ID.PLAYSTORE_APP) {
+                cardLayoutSelectionChangeListener.selectCard(CardLayoutPanel.APP_DETAILS,
                         appReleaseDetails);
-            }else if(cartId == AppsCart.ID.LOCAL_APP){
-                
+            } else if (cartId == AppsCart.ID.LOCAL_APP) {
+
             }
         }
     }//GEN-LAST:event_moreLabelMouseClicked
@@ -341,29 +340,48 @@ public class AppPanel extends JPanel {
 
     public void notifyAllListeners(String action) {
         for (AppPanelActionListener appPanelActionListener : appPanelActionListeners) {
-            if (cardAppDetail != null) {
+            if (cartId == AppsCart.ID.INSATLLED_APP) {
+                if (cardAppDetail != null) {
+                    if (SwingUtilities.isEventDispatchThread()) {
+                        appPanelActionListener.performAction(action,
+                                cardAppDetail);
+                    } else {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                appPanelActionListener.performAction(action,
+                                        cardAppDetail);
+                            }
+                        });
+                    }
+
+                }
+            } else if (cartId == AppsCart.ID.PLAYSTORE_APP) {
                 if (SwingUtilities.isEventDispatchThread()) {
-                    appPanelActionListener.performAction(action, cardAppDetail.getAIDToDelete(),
-                            cardAppDetail.getCardReaderName());
+                    appPanelActionListener.performAction(action,
+                            appReleaseDetails);
                 } else {
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
-                            appPanelActionListener.performAction(action, cardAppDetail.getAIDToDelete(),
-                                    cardAppDetail.getCardReaderName());
+                            appPanelActionListener.performAction(action,
+                                    appReleaseDetails);
                         }
                     });
                 }
 
+            } else if (cartId == AppsCart.ID.LOCAL_APP) {
+
             }
+
         }
     }
 
     public CardAppDetail getCardAppDetail() {
         return cardAppDetail;
     }
-    
-    public AppReleaseDetails getAppReleaseDetails(){
+
+    public AppReleaseDetails getAppReleaseDetails() {
         return appReleaseDetails;
     }
 
@@ -382,8 +400,6 @@ public class AppPanel extends JPanel {
     public void setCartId(AppsCart.ID cartId) {
         this.cartId = cartId;
     }
-    
-    
 
     private CardAppDetail cardAppDetail;
     private AppReleaseDetails appReleaseDetails;

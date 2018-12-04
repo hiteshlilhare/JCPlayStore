@@ -23,11 +23,12 @@ import java.awt.Cursor;
 import java.awt.HeadlessException;
 import java.io.File;
 import java.io.FileFilter;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Timer;
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
  *
@@ -216,7 +217,22 @@ public class MainFrame extends javax.swing.JFrame {
             System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "warn");
         }
         //load configuration.
-        Config.load();
+        File configFile = new File(JCConstants.JC_APP_BASE_DIR
+                + "/properties.xml");
+        if (configFile.exists()) {
+            if (configFile.isFile()) {
+                Config.load();
+            } else {
+                JOptionPane.showMessageDialog(null, "Please delete properties.xml from "
+                        + JCConstants.JC_APP_BASE_DIR + " and restart the application");
+                System.exit(0);
+            }
+        } else {
+            Config.createDefault();
+        }
+        
+        //Add Bouncy Castle as Cryptographic Service Provider.
+        Security.addProvider(new BouncyCastleProvider());
 
         //File filter for filtering cap files.
         FileFilter xmlFileFilter = (File file) -> {

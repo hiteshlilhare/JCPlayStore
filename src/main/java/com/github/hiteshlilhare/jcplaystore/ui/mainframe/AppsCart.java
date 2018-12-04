@@ -6,18 +6,40 @@
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe;
 
 import com.github.hiteshlilhare.jcplaystore.AppPanel;
+import com.github.hiteshlilhare.jcplaystore.JCConstants;
+import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
+import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.jcinterface.GlobalPlatformProInterface;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelCellEditor;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelCellRenderer;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelTableModel;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.AppPanelActionListener;
 import com.github.hiteshlilhare.jcplaystore.ui.util.ModernScrollPane;
+import com.github.hiteshlilhare.jcplaystore.ui.util.UnzipUtility;
+import com.github.hiteshlilhare.jcplaystore.ui.util.Util;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -27,6 +49,8 @@ import javax.swing.ListSelectionModel;
 import javax.swing.border.TitledBorder;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
+import org.apache.commons.io.FileUtils;
+import org.bouncycastle.openpgp.PGPException;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -78,7 +102,7 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
 
         Dimension panelDim = new Dimension(847, 260);
         Dimension scrollPaneDim = new Dimension(837, 230);
-        
+
         titledBorder = javax.swing.BorderFactory.createTitledBorder(null, "Installed Apps", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font(MainFrame.FONT, 2, 16));
         setBorder(titledBorder);
         setPreferredSize(panelDim);
@@ -165,7 +189,8 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
 
     /**
      * Add App Panel in installed App Cart.
-     * @param app 
+     *
+     * @param app
      */
     public void addAppPanel(AppPanel app) {
         TableColumnModel columnModel = table.getColumnModel();
@@ -192,10 +217,11 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
             columnModel.getColumn(i).setMinWidth(AppPanel.WIDTH);
         }
     }
-    
+
     /**
      * Add App Panel in Play Store AppCart.
-     * @param app 
+     *
+     * @param app
      */
     public void addAppPanelInAppStoreAppCart(AppPanel app) {
         TableColumnModel columnModel = table.getColumnModel();
@@ -204,9 +230,9 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
         AppPanel cellAppPanel;
         for (int col_index = 0; col_index < count; col_index++) {
             cellAppPanel = (AppPanel) table.getModel().getValueAt(0, col_index);
-            if(cellAppPanel.getAppReleaseDetails().getID().equalsIgnoreCase(
-                    app.getAppReleaseDetails().getID())){
-                System.out.println(app.getAppReleaseDetails().getID() 
+            if (cellAppPanel.getAppReleaseDetails().getID().equalsIgnoreCase(
+                    app.getAppReleaseDetails().getID())) {
+                System.out.println(app.getAppReleaseDetails().getID()
                         + " is already there.");
                 return;
             }
@@ -253,7 +279,7 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
             cellAppPanel.getCardAppDetail().setFresh(false);
             //If deleteApp is not true then it is for refilling the panel
             //so no need to show No App Panel.
-            if(table.getColumnModel().getColumnCount()==0){
+            if (table.getColumnModel().getColumnCount() == 0) {
                 showNoAppPresentPanel();
             }
         }
@@ -272,46 +298,215 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
     }
 
     /**
-     * Removes all AppPanel from the AppCart
-     * Note: This method is being called in consequence of selection change event of Reader Node.
+     * Removes all AppPanel from the AppCart Note: This method is being called
+     * in consequence of selection change event of Reader Node.
      */
-    public void removeAllAppPanelsFromUIOnly(){
+    public void removeAllAppPanelsFromUIOnly() {
         TableColumnModel columnModel = table.getColumnModel();
         int count = columnModel.getColumnCount();
-        for (int i = count-1; i >=0; i--) {
-            removeAppPanel(false,i);
+        for (int i = count - 1; i >= 0; i--) {
+            removeAppPanel(false, i);
         }
     }
-    //AppPanelActionListener method
-    @Override
-    public void performAction(String action, String aid, String readerName) {
-        if (AppPanel.ACTIONS.DELETE.toString().equalsIgnoreCase(action)) {
-            try {
-                //Remove from UI panel, remove from JavaCardBean and delete from java card
-                boolean flag = GlobalPlatformProInterface.getInstance().deleteApplet(readerName, aid);
+
+    /**
+     * Delete Applet from Java Card.
+     *
+     * @param aid
+     * @param readerName
+     */
+    private void deleteAppletFromCard(String aid, String readerName) {
+        try {
+            //Remove from UI panel, remove from JavaCardBean and delete from java card
+            boolean flag = GlobalPlatformProInterface.getInstance().deleteApplet(readerName, aid);
+            if (flag) {
+                logger.info("Applet " + aid + " deleted from java card.");
+                flag = removeAppPanel(true, selCol);
                 if (flag) {
-                    logger.info("Applet " + aid + " deleted from java card.");
-                    flag = removeAppPanel(true,selCol);
-                    if (flag) {
-                        logger.info("Applet " + aid + " removed from Insatlled App Panel.");
-                    } else {
-                        logger.info("Failed to remove " + aid + " Applet from Insatlled App Panel.");
+                    logger.info("Applet " + aid + " removed from Insatlled App Panel.");
+                } else {
+                    logger.info("Failed to remove " + aid + " Applet from Insatlled App Panel.");
+                }
+            } else {
+                logger.info("Failed to delete " + aid + " Applet from java card.");
+            }
+        } catch (Exception ex) {
+            logger.info("deleteAppletFromCard", ex);
+        }
+    }
+
+    //AppPanelActionListener method
+    /**
+     * Perform requested action on already installed applets.
+     *
+     * @param action
+     * @param cardAppDetail
+     */
+    @Override
+    public void performAction(String action, CardAppDetail cardAppDetail) {
+        if (action.equalsIgnoreCase(AppPanel.ACTIONS.DELETE.toString())) {
+            deleteAppletFromCard(cardAppDetail.getAIDToDelete(),
+                    cardAppDetail.getCardReaderName());
+        } else if (action.equalsIgnoreCase(AppPanel.ACTIONS.UPDATE.toString())) {
+
+        }
+    }
+
+    //AppPanelActionListener method
+    /**
+     * Perform requested action on applets available in remote repository.
+     *
+     * @param action
+     * @param appReleaseDetails
+     */
+    @Override
+    public void performAction(String action, AppReleaseDetails appReleaseDetails) {
+        Gson gsonBuilder = new GsonBuilder().create();
+        String appReleaseDetailsJson = gsonBuilder.toJson(appReleaseDetails);
+        if (action.equalsIgnoreCase(AppPanel.ACTIONS.INSTALL.toString())) {
+
+        } else if (action.equalsIgnoreCase(AppPanel.ACTIONS.DOWNLOAD.toString())) {
+            try {
+                String responseJson = Util.doPostRequest(Util.GET_APP_SERVICE,
+                        appReleaseDetailsJson);
+                JsonParser jsonParser = new JsonParser();
+                JsonObject responseJsonObj = jsonParser.parse(responseJson)
+                        .getAsJsonObject();
+                String responseStatus = responseJsonObj.get("Status").getAsString();
+                if (responseStatus.equalsIgnoreCase("SUCCESS")) {
+                    //Download the artifacts
+                    //System.out.println("Download....");
+                    String fileName = appReleaseDetails.getDeveloperId() + "."
+                            + appReleaseDetails.getAppName() + "."
+                            + appReleaseDetails.getVersion() + ".zip";
+                    Path appZipPath = Paths.get(JCConstants.JC_APP_BASE_DIR,
+                            JCConstants.JC_TEMP_DIR, fileName);
+                    try (InputStream in = new URL(Util.DOWNLOAD_APP_SERVICE
+                            + "?fileName=" + fileName).openStream()) {
+                        Files.copy(in,
+                                appZipPath,
+                                StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    if (!Util.isZipFile(appZipPath.toFile())) {
+                        logger.info("performAction:Downloaded "
+                                + appReleaseDetails.getAppName()
+                                + " Application file is not proper");
+                        Util.showInformationMessageDialog("Download of "
+                                + appReleaseDetails.getAppName()
+                                + " application is unsuccessful",
+                                "Download");
+                        return;
                     }
 
-                } else {
-                    logger.info("Failed to delete " + aid + " Applet from java card.");
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                logger.info(ex.getMessage(), ex);
-            }
+                    //unzip the file
+                    Path destDir = Paths.get(JCConstants.JC_APP_BASE_DIR,
+                            JCConstants.JC_APPS_DIR,
+                            appReleaseDetails.getDeveloperId(),
+                            appReleaseDetails.getAppName(),
+                            appReleaseDetails.getVersion());
 
-        } else if (AppPanel.ACTIONS.INSTALL.toString().equalsIgnoreCase(action)) {
-            //Install App to the card and add to the panel
-        } else if (AppPanel.ACTIONS.UPDATE.toString().equalsIgnoreCase(action)) {
-            // Update the newer version of application and update UI
-        } else if (AppPanel.ACTIONS.DOWNLOAD.toString().equalsIgnoreCase(action)) {
-            // Download the app to the local drive.
+                    try {
+                        FileUtils.deleteDirectory(destDir.toFile());
+                    } catch (IOException e) {
+                        logger.info("performAction:Unable to delete existing "
+                                + destDir.toString() + " application directory", e);
+                        Util.showInformationMessageDialog("Download of "
+                                + appReleaseDetails.getAppName()
+                                + " application is unsuccessful",
+                                "Download");
+                        return;
+                    }
+                    //make empty directories
+                    FileUtils.forceMkdir(destDir.toFile());
+                    //Unzip to this dirctory
+                    UnzipUtility.unzip(appZipPath.toString(),
+                            destDir.getParent().toString());
+                    //delete zip file
+                    FileUtils.forceDelete(appZipPath.toFile());
+
+                    //validate signature of artifacts
+                    ////validate cap and xml file
+                    File[] appArtifacts = destDir.toFile().listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File file) {
+                            if (file.isFile()
+                                    && (file.getName().endsWith(".cap")
+                                    || file.getName().endsWith(".xml"))) {
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+                    
+                    boolean isAppVerified = true;
+                    for (File appArtifact : appArtifacts) {
+                        InputStream serverPubKey = new BufferedInputStream(
+                            getClass().getResourceAsStream(
+                                    "/keys/jcps.server.pub.gpg"));
+                        boolean verified = Util.verifySignature(
+                                appArtifact.getAbsolutePath(),
+                                appArtifact.getAbsolutePath() + ".sig",
+                                serverPubKey);
+                        if (verified) {
+                            System.out.println(appArtifact.getName()
+                                    + " signature verified successfully");
+                        } else {
+                            isAppVerified = false;
+                            System.out.println("Failed to verify "
+                                    + appArtifact.getName() + " signature");
+                        }
+                    }
+                    ////validate icon files.
+                    File appIconDir = Paths.get(destDir.toString(), "appicon").toFile();
+                    File[] appIcons = appIconDir.listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File file) {
+                            if (file.isFile() 
+                                    && !file.getName().endsWith(".sig")) {
+                                return true;
+                            }
+                            return false;
+                        }
+                    });
+                    for (File appIcon : appIcons) {
+                        InputStream serverPubKey = new BufferedInputStream(
+                            getClass().getResourceAsStream(
+                                    "/keys/jcps.server.pub.gpg"));
+                        boolean verified = Util.verifySignature(
+                                appIcon.getAbsolutePath(),
+                                appIcon.getAbsolutePath() + ".sig",
+                                serverPubKey);
+                        if (verified) {
+                            System.out.println(appIcon.getName()
+                                    + " signature verified successfully");
+                        } else {
+                            isAppVerified = false;
+                            System.out.println("Failed to verify "
+                                    + appIcon.getName() + " signature");
+                        }
+                    }
+                    if (!isAppVerified) {
+                        logger.info(appReleaseDetails.getAppName()
+                                + " application signature verification failed");
+                        Util.showInformationMessageDialog("Download of "
+                                + appReleaseDetails.getAppName()
+                                + " application is unsuccessful",
+                                "Download");
+                        return;
+                    }
+
+                    Util.showInformationMessageDialog(appReleaseDetails.getAppName()
+                            +" downloaded successfully", "Download");
+                } else {
+                    Util.showInformationMessageDialog(responseStatus, "Download");
+                }
+            } catch (IOException ex) {
+                logger.error("performAction", ex);
+                Util.showInformationMessageDialog("Download of "
+                        + appReleaseDetails.getAppName()
+                        + " application is unsuccessful",
+                        "Download");
+            }
         }
     }
 
