@@ -10,6 +10,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Paths;
 import java.util.*;
 import javax.swing.JOptionPane;
 
@@ -17,7 +18,7 @@ public class Config {
 
     private static final Properties prop = new Properties();
 
-    public static void load(){
+    public static void load() {
         try {
             InputStream in = new FileInputStream(JCConstants.JC_APP_BASE_DIR
                     + "/properties.xml");
@@ -28,16 +29,23 @@ public class Config {
         }
     }
 
-    public static String getRemoteRepoUrl() {
-        return prop.getProperty("RemoteRepoURL");
+    public static void createDefault() {
+        prop.setProperty("ServerURL", "http://localhost:8010/jcpss");
+        prop.setProperty("LocalAppDir", Paths.get(JCConstants.JC_APP_BASE_DIR 
+                + "/" + JCConstants.JC_APPS_DIR).toString());
+        save();
+    }
+
+    public static String getServerUrl() {
+        return prop.getProperty("ServerURL");
     }
 
     public static String getLocalAppDir() {
         return prop.getProperty("LocalAppDir");
     }
 
-    public static void setRemoteRepoUrl(String url) {
-        prop.setProperty("RemoteRepoURL", url);
+    public static void setServerUrl(String url) {
+        prop.setProperty("ServerURL", url);
     }
 
     public static void setLocalAppDir(String dir) {

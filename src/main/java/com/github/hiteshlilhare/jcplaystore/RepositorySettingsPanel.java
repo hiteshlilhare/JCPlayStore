@@ -53,7 +53,7 @@ public class RepositorySettingsPanel extends javax.swing.JPanel {
             @Override
             public void actionPerformed(ActionEvent ae) {
                 Config.setLocalAppDir(localDirTextField.getText());
-                Config.setRemoteRepoUrl(urlTextField.getText());
+                Config.setServerUrl(urlTextField.getText());
                 Config.save();
             }
         });
@@ -110,7 +110,7 @@ public class RepositorySettingsPanel extends javax.swing.JPanel {
     private javax.swing.JPanel repositoryPanel;
     // End of variables declaration//GEN-END:variables
     JLabel remoteRepoUrlLabel = new JLabel("Remote Repository URL:");
-    JTextField urlTextField = new JTextField(Config.getRemoteRepoUrl());
+    JTextField urlTextField = new JTextField(Config.getServerUrl());
     JLabel localAppDirLabel = new JLabel("Local App Dir:");
     JTextField localDirTextField = new JTextField(Config.getLocalAppDir());
     JButton browseButton = new JButton("Browse");
