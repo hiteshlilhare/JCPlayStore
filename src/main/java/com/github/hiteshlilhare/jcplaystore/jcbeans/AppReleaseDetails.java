@@ -15,7 +15,8 @@ import java.util.ArrayList;
 public class AppReleaseDetails {
 
     public enum TableField {
-        AppName, Version, DeveloperId, ReleaseDate, CloneURL, SourceCloneURL, Rating, TestedOn, Status, Remarks
+        AppName, Version, DeveloperId, ReleaseDate, CloneURL, SourceCloneURL, 
+        Rating, TestedOn, Status, Remarks
     }
 
     public enum Status {

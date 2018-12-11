@@ -10,9 +10,12 @@ import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardBean;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardLayoutSelectionChangeListener;
+import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.LocalRepositoryListener;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.RemoteRepositoryListener;
 import info.clearthought.layout.TableLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,11 +26,11 @@ import org.slf4j.LoggerFactory;
  *
  * @author Hitesh
  */
-public class AppCartsPanel extends javax.swing.JPanel 
-        implements RemoteRepositoryListener {
+public class AppCartsPanel extends javax.swing.JPanel
+        implements RemoteRepositoryListener, LocalRepositoryListener {
 
-    private static final Logger logger = 
-            LoggerFactory.getLogger(AppCartsPanel.class);
+    private static final Logger logger
+            = LoggerFactory.getLogger(AppCartsPanel.class);
 
     /**
      * Creates new form AppCartsPanel
@@ -69,6 +72,7 @@ public class AppCartsPanel extends javax.swing.JPanel
     //This method will be called as a consequence of ReaderNodeSelectionListener
     //updateUI method.
     public void updateInstalledAppCart(JavaCardReaderBean javaCardReaderBean) {
+        this.javaCardReaderBean = javaCardReaderBean;
         updateInstalledAppCart(javaCardReaderBean.getJavaCardBean(),
                 javaCardReaderBean.isCardPresent());
     }
@@ -83,7 +87,7 @@ public class AppCartsPanel extends javax.swing.JPanel
      */
     public void updateInstalledAppCart(JavaCardBean javaCardBean, boolean cardPresent) {
         //1. Remove all AppPanel from the installedAppPanel.
-        installedAppsCart.removeAllAppPanelsFromUIOnly();
+        installedAppsCart.removeAllAppPanelsFromUIOnly(AppsCart.ID.INSATLLED_APP);
         //2. Update the Map vaue for AppsCart.ID.INSATLLED_APP
         JavaCardBean previousJavaCardBean = cardBeanMap.get(AppsCart.ID.INSATLLED_APP.toString());
         if (previousJavaCardBean != null) {
@@ -116,13 +120,17 @@ public class AppCartsPanel extends javax.swing.JPanel
             for (CardAppDetail cardAppDetail : cardAppDetails) {
                 if (cardAppDetail.isFresh()) {
                     AppPanel appPanel = new AppPanel(cardAppDetail);
-                    appPanel.setButtonsVisibility(new boolean[]{true, false, true, false});
+                    appPanel.setButtonsVisibility(new boolean[]{true, false, true, false, false});
                     appPanel.setCardLayoutSelectionChangeListener(listener);
                     installedAppsCart.addAppPanel(appPanel);
                 }
             }
             installedAppsCart.showAppListPanel();
         }
+    }
+
+    public JavaCardReaderBean getJavaCardReaderBean() {
+        return javaCardReaderBean;
     }
 
     /**
@@ -137,7 +145,7 @@ public class AppCartsPanel extends javax.swing.JPanel
         setLayout(null);
     }// </editor-fold>//GEN-END:initComponents
     private CardLayoutSelectionChangeListener listener;
-    private JavaCardBean javaCardBean;
+    private JavaCardReaderBean javaCardReaderBean;
     private AppsCart installedAppsCart;
     private AppsCart appStoreAppsCart;
     private AppsCart localAppsCart;
@@ -152,9 +160,30 @@ public class AppCartsPanel extends javax.swing.JPanel
     public void updateAppStoreUI(ArrayList<AppReleaseDetails> releasedApps) {
         for (AppReleaseDetails releasedApp : releasedApps) {
             AppPanel appPanel = new AppPanel(releasedApp);
-            appPanel.setButtonsVisibility(new boolean[]{false, true, false, true});
+            appPanel.setButtonsVisibility(new boolean[]{false, true, false, true, true});
             appPanel.setCardLayoutSelectionChangeListener(listener);
             appStoreAppsCart.addAppPanelInAppStoreAppCart(appPanel);
+        }
+    }
+
+    @Override
+    public void updateConnectivity(boolean connected) {
+        appStoreAppsCart.setBorderTitleColor(
+                connected ? Color.GREEN : Color.RED);
+        if (!connected) {
+            appStoreAppsCart.removeAllAppPanelsFromUIOnly(
+                    AppsCart.ID.PLAYSTORE_APP);
+        }
+    }
+
+    @Override
+    public void updateLocalAppStoreUI(
+            ArrayList<CardAppMetaData> downloadedApps) {
+        for (CardAppMetaData downloadedApp : downloadedApps) {
+            AppPanel appPanel = new AppPanel(downloadedApp);
+            appPanel.setButtonsVisibility(new boolean[]{false, true, false, false, false});
+            appPanel.setCardLayoutSelectionChangeListener(listener);
+            localAppsCart.addAppPanelInLocalStoreAppCart(appPanel);
         }
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables

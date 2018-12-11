@@ -25,6 +25,8 @@ public class CardAppMetaData {
     private String signedBy;
     private String releaseDate;
     private String description;
+    private String appstore_repository;
+    private String appsource_repository;
     private final ArrayList<String> features = new ArrayList<>();
     private final ArrayList<String> repositories = new ArrayList<>();
     private final ArrayList<String> discussions = new ArrayList<>();
@@ -32,11 +34,16 @@ public class CardAppMetaData {
 
     @Override
     public String toString() {
-        return "AppName:" + name + "\nweb-site:" + website + "\ncompany:" + company + "\nlicense:" + license
-                + "\nAuthors:" + authors + "\ncap-fie:" + capFile + "\ncart-icon:" + cartIconFile
-                + "\ndesc-icon:" + descIconFile + "\nversion:" + version + "\nSigned By:" + signedBy
-                + "\nRelease Date:" + releaseDate + "\nDescription:" + description + "\nfeatupes:" + features
-                + "\nRepositories:" + repositories + "\nDiscussion:" + discussions + "\nUsers:" + users;
+        return "AppName:" + name + "\nweb-site:" + website + "\ncompany:" 
+                + company + "\nlicense:" + license + "\nAuthors:" + authors 
+                + "\ncap-fie:" + capFile + "\ncart-icon:" + cartIconFile
+                + "\ndesc-icon:" + descIconFile + "\nversion:" + version 
+                + "\nSigned By:" + signedBy + "\nRelease Date:" + releaseDate 
+                + "\nDescription:" + description + "\nfeatupes:" + features
+                + "\nRepositories:" + repositories + "\nDiscussion:" 
+                + discussions + "\nUsers:" + users + "\nappstore-repository:"
+                + appstore_repository + "\nappsource-repository:" 
+                + appsource_repository;
     }
 
     public String getName() {
@@ -151,6 +158,22 @@ public class CardAppMetaData {
         return repositories;
     }
 
+    public String getAppstoreRepository() {
+        return appstore_repository;
+    }
+
+    public void setAppstoreRepository(String appstore_repository) {
+        this.appstore_repository = appstore_repository;
+    }
+
+    public String getAppsourceRepository() {
+        return appsource_repository;
+    }
+
+    public void setAppsourceRepository(String appsource_repository) {
+        this.appsource_repository = appsource_repository;
+    }
+    
     public void addDiscussion(String discussion) {
         discussions.add(discussion);
     }

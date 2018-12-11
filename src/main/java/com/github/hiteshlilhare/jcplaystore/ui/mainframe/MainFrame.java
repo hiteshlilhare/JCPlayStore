@@ -18,16 +18,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.ReaderNodeSelectionListener;
 import com.github.hiteshlilhare.jcplaystore.ui.util.Config;
+import com.github.hiteshlilhare.jcplaystore.ui.util.LocalRepositoryMonitorTimerTask;
 import com.github.hiteshlilhare.jcplaystore.ui.util.ReleaseMonitorTimerTask;
+import com.github.hiteshlilhare.jcplaystore.ui.util.Util;
 import java.awt.Cursor;
 import java.awt.HeadlessException;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Timer;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+import org.apache.commons.io.FileUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 /**
@@ -139,11 +143,10 @@ public class MainFrame extends javax.swing.JFrame {
                     //the place where finally we add node to the tree.
                     //Since we got the status from the method so we can add 
                     //Monitoring thread here  only.
-//                    if (status) {
-//                        cardReaderBean.startCardTerminalMonitor();
-//                    }
+                    //if (status) {
+                    //    cardReaderBean.startCardTerminalMonitor();
+                    //}
                 }
-//                logger.info("Reader Connected!!!");
             }
 
             @Override
@@ -153,8 +156,7 @@ public class MainFrame extends javax.swing.JFrame {
             }
         });
         //Create directory structure.
-        createDirectoryStructure();
-
+        Util.createDirectoryStructure();
     }
 
     /**
@@ -230,7 +232,7 @@ public class MainFrame extends javax.swing.JFrame {
         } else {
             Config.createDefault();
         }
-        
+
         //Add Bouncy Castle as Cryptographic Service Provider.
         Security.addProvider(new BouncyCastleProvider());
 
@@ -273,8 +275,14 @@ public class MainFrame extends javax.swing.JFrame {
             //GlobalPlatformProInterface.getInstance().getReaders(SPEC);
             mainFrame.setVisible(true);
             //Schedule Release Monitor Timer Task.
-            Timer timer = new Timer();
-            timer.schedule(ReleaseMonitorTimerTask.getInstance(), 0, 1000 * 60);
+            Timer releaseMonTimer = new Timer();
+            releaseMonTimer.schedule(ReleaseMonitorTimerTask.getInstance(),
+                    0, 1000 * 30);
+            //Schedule Local Repository Monitor Timer Task.
+            Timer localRepoMonTimer = new Timer();
+            localRepoMonTimer.schedule(
+                    LocalRepositoryMonitorTimerTask.getInstance(),
+                    0, 1000 * 15);
             //This thread is for monitoring any new addition of reader.
             new Thread() {
                 @Override
@@ -290,8 +298,7 @@ public class MainFrame extends javax.swing.JFrame {
                                 }
                             });
                         } catch (Exception ex) {
-                            ex.printStackTrace();
-                            //logger.error(ex.getMessage());
+                            logger.error("Reader Monitor Thread", ex);
                         }
                     }
                 }
@@ -337,61 +344,6 @@ public class MainFrame extends javax.swing.JFrame {
         this.selectedReader = selectedReader;
     }
 
-    /**
-     * Creates required directory structure a
-     *
-     * @throws HeadlessException
-     */
-    private void createDirectoryStructure() throws HeadlessException {
-        //Create local app store directory if not exist.
-        File appStoreDir = new File(JCConstants.JC_APP_BASE_DIR);
-        //Create App Base directory.
-        if (!appStoreDir.exists() || appStoreDir.isFile()) {
-            if (appStoreDir.mkdir()) {
-                //Create App Directory if not exists.
-                File appDir = new File(JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_APPS_DIR);
-                if (!appDir.exists() || appDir.isFile()) {
-                    if (!appDir.mkdir()) {
-                        logger.info("Unable to create " + JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_APPS_DIR + " directory.");
-                    } else {
-                        localRepo = appDir;
-                    }
-                }
-                //Create Database Directory if not exists.
-                File dbDir = new File(JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_DB_DIR);
-                if (!dbDir.exists() || dbDir.isFile()) {
-                    if (!dbDir.mkdir()) {
-                        logger.info("Unable to create " + JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_DB_DIR + " directory.");
-                    }
-                }
-                //Create Sources Directory if not exists.
-                File sourceDir = new File(JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_SOURCES_DIR);
-                if (!sourceDir.exists() || sourceDir.isFile()) {
-                    if (!sourceDir.mkdir()) {
-                        logger.info("Unable to create " + JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_SOURCES_DIR + " directory.");
-                    }
-                }
-                //Create tools Directory if not exists.
-                File toolsDir = new File(JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_TOOLS_DIR);
-                if (!toolsDir.exists() || toolsDir.isFile()) {
-                    if (!toolsDir.mkdir()) {
-                        logger.info("Unable to create " + JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_TOOLS_DIR + " directory.");
-                    }
-                }
-                //Create temp Directory if not exists.
-                File tempDir = new File(JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_TEMP_DIR);
-                if (!tempDir.exists() || tempDir.isFile()) {
-                    if (!tempDir.mkdir()) {
-                        logger.info("Unable to create " + JCConstants.JC_APP_BASE_DIR + "/" + JCConstants.JC_TEMP_DIR + " directory.");
-                    }
-                }
-            } else {
-                logger.info("Unable to create " + JCConstants.JC_APP_BASE_DIR + " directory.");
-                JOptionPane.showMessageDialog(null, "Unable to create local App Store directory.", "JCPlayStore", JOptionPane.INFORMATION_MESSAGE);
-            }
-        }
-    }
-
     public void setWaitCursor() {
         setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
     }
@@ -403,6 +355,8 @@ public class MainFrame extends javax.swing.JFrame {
     class LocalRepoMonior extends Thread {
 
         private ArrayList<File> recentLocalRepoApps;
+        private File localRepo = new File(JCConstants.JC_APP_BASE_DIR
+                + "/" + JCConstants.JC_APPS_DIR);
 
         @Override
         public void run() {
@@ -426,7 +380,6 @@ public class MainFrame extends javax.swing.JFrame {
         }
 
     }
-    private File localRepo;
     private ArrayList<File> localRepoApps;
     private JPanel mainPanel;
     private HeadingPanel headingPanel;

@@ -13,6 +13,7 @@ import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardBean;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardReaderStatusListener;
 import com.github.hiteshlilhare.jcplaystore.ui.util.CardReaderMap;
+import com.github.hiteshlilhare.jcplaystore.ui.util.StatusMessage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -79,7 +80,9 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
     // Database related constants.
     private final static String JC_APP_DIR = "JCAPPStore";
     private final static String JC_DB_FILE = "jcsqlite.db";
-    private final static String DB_URL = "jdbc:sqlite:" + FileSystemView.getFileSystemView().getDefaultDirectory() + "/" + JC_APP_DIR + "/" + JC_DB_FILE;
+    private final static String DB_URL = "jdbc:sqlite:"
+            + FileSystemView.getFileSystemView().getDefaultDirectory()
+            + "/" + JC_APP_DIR + "/" + JC_DB_FILE;
 
     private static GlobalPlatformProInterface _instance;
 
@@ -314,7 +317,8 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
             exeArgs.setCmdLineOPtions(cmdOption);
         }
         exeArgs.setCmd(COMMANDS.LIST);
-        executeCommand(exeArgs);
+        StatusMessage statusMessage = new StatusMessage();
+        executeCommand(exeArgs, statusMessage);
     }
 
     /**
@@ -324,12 +328,14 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
      *
      * @param aid
      * @param readerName
-     * @param cmdOPtion
+     * @param cmdOption
      * @return
      * @throws Exception
      */
     // --delete <aid> or --delete --default
-    public boolean deleteApplet(String readerName, String aid, String... cmdOPtion) throws Exception {
+    public boolean deleteApplet(String readerName,
+            String aid,
+            String... cmdOption) throws Exception {
         logger.info("Deleting AID: " + aid);
         JavaCardReaderBean javaCardReaderBean = cardReadersMap.get(readerName);
         if (javaCardReaderBean == null) {
@@ -342,7 +348,7 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
         }
         ExecuteArgs exeArgs = new ExecuteArgs();
         exeArgs.setJavaCardReaderBean(javaCardReaderBean);
-        if (cmdOPtion.length == 0) {
+        if (cmdOption.length == 0) {
             if (javaCardReaderBean.getJavaCardBean().isEMV()) {
                 exeArgs.setCmdLineOPtions(new String[]{"--emv", "--delete", aid});
             } else {
@@ -350,7 +356,7 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
             }
 
         } else {
-            ArrayList<String> newOptions = new ArrayList<>(Arrays.asList(cmdOPtion));
+            ArrayList<String> newOptions = new ArrayList<>(Arrays.asList(cmdOption));
             if (javaCardReaderBean.getJavaCardBean().isEMV()) {
                 newOptions.add("--emv");
                 newOptions.add("--delete");
@@ -362,25 +368,58 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
             exeArgs.setCmdLineOPtions(newOptions.toArray(new String[0]));
         }
         exeArgs.setCmd(COMMANDS.DELETE);
-        return executeCommand(exeArgs);
+        StatusMessage statusMessage = new StatusMessage();
+        return executeCommand(exeArgs, statusMessage);
     }
 
-// --install <applet.cap> (--applet <aid> --create <aid> --privs <privs> --params <params>)    
-    public void installApplet(JavaCardReaderBean javaCardReaderBean) throws Exception {
+// --install <applet.cap> (--applet <aid> --create <aid> --privs 
+    //<privs> --params <params>)    
+    public void installApplet(JavaCardReaderBean javaCardReaderBean,
+            StatusMessage statusMessage, 
+            String appFile, 
+            String... cmdOption) throws Exception {
+        if (javaCardReaderBean == null
+                || !javaCardReaderBean.getCardTerminal().isCardPresent()) {
+            statusMessage.setCode(StatusMessage.Code.FAILURE);
+            statusMessage.setMessage("Please insert card before "
+                    + "installing application");
+            return;
+        }
         ExecuteArgs exeArgs = new ExecuteArgs();
         exeArgs.setJavaCardReaderBean(javaCardReaderBean);
-        exeArgs.setCmdLineOPtions(new String[]{"--install"});
+        if (cmdOption.length == 0) {
+            if (javaCardReaderBean.getJavaCardBean().isEMV()) {
+                exeArgs.setCmdLineOPtions(new String[]{"--emv", "--install", appFile});
+            } else {
+                exeArgs.setCmdLineOPtions(new String[]{"--install", appFile});
+            }
+
+        } else {
+            ArrayList<String> newOptions = new ArrayList<>(Arrays.asList(cmdOption));
+            if (javaCardReaderBean.getJavaCardBean().isEMV()) {
+                newOptions.add("--emv");
+                newOptions.add("--install");
+                newOptions.add(appFile);
+            } else {
+                newOptions.add("--install");
+                newOptions.add(appFile);
+            }
+            exeArgs.setCmdLineOPtions(newOptions.toArray(new String[0]));
+        }
+        
         exeArgs.setCmd(COMMANDS.INSTALL);
-        executeCommand(exeArgs);
+        executeCommand(exeArgs, statusMessage);
     }
 
 // --uninstall <cap>
-    public void uninstallApplet(JavaCardReaderBean javaCardReaderBean) throws Exception {
+    public void uninstallApplet(JavaCardReaderBean javaCardReaderBean)
+            throws Exception {
         ExecuteArgs exeArgs = new ExecuteArgs();
         exeArgs.setJavaCardReaderBean(javaCardReaderBean);
         exeArgs.setCmdLineOPtions(new String[]{"--uninstall"});
         exeArgs.setCmd(COMMANDS.UNINSTALL);
-        executeCommand(exeArgs);
+        StatusMessage statusMessage = new StatusMessage();
+        executeCommand(exeArgs, statusMessage);
     }
 
     /**
@@ -391,34 +430,49 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
      * @return
      * @throws Exception
      */
-    private boolean executeCommand(ExecuteArgs exeArgs) throws Exception {
+    private boolean executeCommand(ExecuteArgs exeArgs,
+            StatusMessage statusMessage) throws Exception {
 
         if (!makeArgs(exeArgs.getCmdLineOptions())) {
+            statusMessage.setCode(StatusMessage.Code.FAILURE);
+            statusMessage.setMessage("Unable to execute " + exeArgs.getCmd()
+                    + " command, please try after sometime.");
+            logger.info("executeCommand:Unable to parse agruments");
             return false;
         }
-        
+
         if (exeArgs.getJavaCardReaderBean().getCardTerminal().isCardPresent()) {
-            logger.info("Card present in reader.");
+            logger.info("executeCommand:Card present in reader.");
             Card card = null;
             CardChannel channel = null;
             try {
-                card = exeArgs.getJavaCardReaderBean().getCardTerminal().connect("*");
+                card = exeArgs.getJavaCardReaderBean()
+                        .getCardTerminal().connect("*");
                 // We use apdu4j which by default uses jnasmartcardio
                 // which uses real SCardBeginTransaction
                 if (card == null) {
-                    logger.info("Unable to connect");
+                    logger.info("executeCommand:Unable to connect to card");
+                    statusMessage.setCode(StatusMessage.Code.FAILURE);
+                    statusMessage.setMessage("Unable to connect to card,"
+                            + " please try after sometime.");
                     return false;
                 }
                 card.beginExclusive();
                 channel = card.getBasicChannel();
-                logger.info("Reader: " + exeArgs.getJavaCardReaderBean().getReaderName());
-                logger.info("ATR: " + HexUtils.bin2hex(card.getATR().getBytes()));
+                logger.info("executeCommand:Reader "
+                        + exeArgs.getJavaCardReaderBean().getReaderName());
+                logger.info("executeCommand:ATR "
+                        + HexUtils.bin2hex(card.getATR().getBytes()));
                 //populate CARD ATR Value
-                exeArgs.getJavaCardReaderBean().getJavaCardBean().getCardDetails().setAtr(card.getATR());
-                exeArgs.getJavaCardReaderBean().getJavaCardBean().getCardDetails().setATRString(HexUtils.bin2hex(card.getATR().getBytes()));
+                exeArgs.getJavaCardReaderBean().getJavaCardBean()
+                        .getCardDetails().setAtr(card.getATR());
+                exeArgs.getJavaCardReaderBean().getJavaCardBean()
+                        .getCardDetails().setATRString(
+                                HexUtils.bin2hex(card.getATR().getBytes()));
 
                 if (args.has(OPT_SDAID)) {
-                    gp = GlobalPlatform.connect(channel, AID.fromString(args.valueOf(OPT_SDAID)));
+                    gp = GlobalPlatform.connect(channel,
+                            AID.fromString(args.valueOf(OPT_SDAID)));
                 } else {
                     // Oracle only applies if no other arguments given
                     gp = GlobalPlatform.discover(channel);
@@ -430,25 +484,48 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                 final GPSessionKeyProvider keys;
                 if (args.has(OPT_KEYS)) {
                     // keys come from custom provider
-                    logger.error(OPT_KEYS + "Command line opotion is not yet implemented");
+                    logger.info("executeCommand:" + OPT_KEYS
+                            + "Command line opotion is not yet implemented");
+                    statusMessage.setCode(StatusMessage.Code.FAILURE);
+                    statusMessage.setMessage(OPT_KEYS
+                            + " opotion is not supported");
                     return false;
                     //keys = PlaintextKeys.fromMasterKey(GPData.getDefaultKey());
                 } else if (args.has(OPT_ORACLE)) {
-                    keys = PythiaKeys.ask(card.getATR().getBytes(), GPData.fetchCPLC(channel), GPData.fetchKeyInfoTemplate(channel));
+                    keys = PythiaKeys.ask(card.getATR().getBytes(),
+                            GPData.fetchCPLC(channel),
+                            GPData.fetchKeyInfoTemplate(channel));
                 } else {
                     PlaintextKeys keyz;
                     if (args.has(OPT_KEY)) {
-                        GPKey k = new GPKey(HexUtils.stringToBin((String) args.valueOf(OPT_KEY)));
+                        GPKey k = new GPKey(
+                                HexUtils.stringToBin(
+                                        (String) args.valueOf(OPT_KEY)));
                         if (args.has(OPT_KCV)) {
-                            byte[] given = HexUtils.stringToBin((String) args.valueOf(OPT_KCV));
+                            byte[] given = HexUtils.stringToBin(
+                                    (String) args.valueOf(OPT_KCV));
                             byte[] expected = k.getKCV();
                             if (expected.length == 0) {
-                                logger.error("Don't know how to calculate KCV (Key Check Value) for the key"); // FIXME: all keys are RAW currently
+                                logger.info("executeCommand:Don't know how to "
+                                        + "calculate KCV (Key Check Value) for"
+                                        + " the key");
+                                statusMessage.setCode(
+                                        StatusMessage.Code.FAILURE);
+                                statusMessage.setMessage("Unable to calculate "
+                                        + "key check value for the key");
                                 return false;
                             }
                             // Check KCV (Key Check Value)
                             if (!Arrays.equals(given, expected)) {
-                                logger.error("KCV (Key Check Value) does not match, expected " + HexUtils.bin2hex(expected) + " but given " + HexUtils.bin2hex(given));
+                                logger.error("KCV (Key Check Value) does not "
+                                        + "match, expected "
+                                        + HexUtils.bin2hex(expected)
+                                        + " but given "
+                                        + HexUtils.bin2hex(given));
+                                statusMessage.setCode(
+                                        StatusMessage.Code.FAILURE);
+                                statusMessage.setMessage("Key Check Value "
+                                        + "does not match");
                                 return false;
                             }
                         }
@@ -456,24 +533,40 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                     } else {
                         Map<String, String> env = System.getenv();
                         // XXX: better checks for exclusive key options
-                        if (args.has(OPT_KEY_MAC) && args.has(OPT_KEY_ENC) && args.has(OPT_KEY_DEK)) {
-                            GPKey enc = new GPKey(HexUtils.stringToBin((String) args.valueOf(OPT_KEY_ENC)));
-                            GPKey mac = new GPKey(HexUtils.stringToBin((String) args.valueOf(OPT_KEY_MAC)));
-                            GPKey dek = new GPKey(HexUtils.stringToBin((String) args.valueOf(OPT_KEY_DEK)));
+                        if (args.has(OPT_KEY_MAC)
+                                && args.has(OPT_KEY_ENC)
+                                && args.has(OPT_KEY_DEK)) {
+                            GPKey enc = new GPKey(HexUtils.stringToBin(
+                                    (String) args.valueOf(OPT_KEY_ENC)));
+                            GPKey mac = new GPKey(HexUtils.stringToBin(
+                                    (String) args.valueOf(OPT_KEY_MAC)));
+                            GPKey dek = new GPKey(HexUtils.stringToBin(
+                                    (String) args.valueOf(OPT_KEY_DEK)));
                             keyz = PlaintextKeys.fromKeys(enc, mac, dek);
-                        } else if (env.containsKey("GP_KEY_ENC") && env.containsKey("GP_KEY_MAC") && env.containsKey("GP_KEY_DEK")) {
-                            GPKey enc = new GPKey(HexUtils.stringToBin(env.get("GP_KEY_ENC")));
-                            GPKey mac = new GPKey(HexUtils.stringToBin(env.get("GP_KEY_MAC")));
-                            GPKey dek = new GPKey(HexUtils.stringToBin(env.get("GP_KEY_DEK")));
+                        } else if (env.containsKey("GP_KEY_ENC")
+                                && env.containsKey("GP_KEY_MAC")
+                                && env.containsKey("GP_KEY_DEK")) {
+                            GPKey enc = new GPKey(HexUtils.stringToBin(
+                                    env.get("GP_KEY_ENC")));
+                            GPKey mac = new GPKey(HexUtils.stringToBin(
+                                    env.get("GP_KEY_MAC")));
+                            GPKey dek = new GPKey(HexUtils.stringToBin(
+                                    env.get("GP_KEY_DEK")));
                             keyz = PlaintextKeys.fromKeys(enc, mac, dek);
                             if (env.containsKey("GP_KEY_VERSION")) {
-                                keyz.setVersion(GPUtils.intValue(env.get("GP_KEY_VERSION")));
+                                keyz.setVersion(GPUtils.intValue(
+                                        env.get("GP_KEY_VERSION")));
                             }
                         } else {
                             if (needsAuthentication(args)) {
-                                logger.info("Warning: no keys given, using default test key " + HexUtils.bin2hex(GPData.getDefaultKey().getBytes()));
+                                logger.info("Warning: no keys given, using "
+                                        + "default test key "
+                                        + HexUtils.bin2hex(
+                                                GPData.getDefaultKey()
+                                                        .getBytes()));
                             }
-                            keyz = PlaintextKeys.fromMasterKey(GPData.getDefaultKey());
+                            keyz = PlaintextKeys.fromMasterKey(
+                                    GPData.getDefaultKey());
                         }
                     }
                     // "gp -l -emv" should still work
@@ -484,9 +577,9 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                     } else if (args.has(OPT_KDF3)) {
                         keyz.setDiversifier(KDF3);
                     }
-
                     if (args.has(OPT_KEY_VERSION)) {
-                        keyz.setVersion(GPUtils.intValue((String) args.valueOf(OPT_KEY_VERSION)));
+                        keyz.setVersion(GPUtils.intValue(
+                                (String) args.valueOf(OPT_KEY_VERSION)));
                     }
                     keys = keyz;
                 }
@@ -498,22 +591,26 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
 
                 // Override block size for stupidly broken readers.
                 // See https://github.com/martinpaljak/GlobalPlatformPro/issues/32
-                // The name of the option comes from a common abbreviation as well as dd utility
+                // The name of the option comes from a common abbreviation 
+                //as well as dd utility
                 if (args.has(OPT_BS)) {
                     gp.setBlockSize((int) args.valueOf(OPT_BS));
                 }
                 // Authenticate, only if needed
                 if (needsAuthentication(args)) {
-                    EnumSet<GlobalPlatform.APDUMode> mode = GlobalPlatform.defaultMode.clone();
+                    EnumSet<GlobalPlatform.APDUMode> mode
+                            = GlobalPlatform.defaultMode.clone();
                     // Override default mode if needed.
                     if (args.has(OPT_SC_MODE)) {
                         mode.clear();
                         for (Object s : args.valuesOf(OPT_SC_MODE)) {
-                            mode.add(GlobalPlatform.APDUMode.fromString((String) s));
+                            mode.add(GlobalPlatform.APDUMode.fromString(
+                                    (String) s));
                         }
                     }
 
-                    // IMPORTANT PLACE. Possibly brick the card now, if keys don't match.
+                    // IMPORTANT PLACE. Possibly brick the card now, 
+                    //if keys don't match.
                     gp.setStrict(true);
                     try {
                         gp.openSecureChannel(keys, null, 0, mode);
@@ -533,7 +630,7 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                             card.disconnect(true);
                             card = null;
                         }
-                        return executeCommand(exeArgs);
+                        return executeCommand(exeArgs, statusMessage);
                     }
 
                     GPRegistry reg = gp.getRegistry();
@@ -544,14 +641,18 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                         case LIST:
                             //if (exeArgs.has(OPT_LIST)) {
                             if (args.has(OPT_EMV)) {
-                                logger.info("Set EMV option true for JavaCardBean");
+                                logger.info(
+                                        "Set EMV option true for JavaCardBean");
                                 exeArgs.getJavaCardReaderBean()
                                         .getJavaCardBean().setEMV(true);
                             }
-                            
+
                             listRegistry(reg,
                                     exeArgs.getJavaCardReaderBean().getJavaCardBean(),
                                     true);
+                            statusMessage.setCode(StatusMessage.Code.SUCCESS);
+                            statusMessage.setMessage(exeArgs.getCmd()
+                                    + " command executed successfully");
                             //}
                             break;
                         case DELETE:
@@ -561,39 +662,71 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                                 if (reg.getDefaultSelectedPackageAID() != null) {
                                     gp.deleteAID(reg.getDefaultSelectedPackageAID(), true);
                                 } else {
-                                    logger.error("Could not identify default selected application!");
+                                    logger.error("Could not identify default "
+                                            + "selected application!");
+                                    statusMessage.setCode(StatusMessage.Code.FAILURE);
+                                    statusMessage.setMessage(
+                                            "Unable to identify default "
+                                            + "selected application");
                                     return false;
                                 }
                             }
                             logger.info("OPT_DELETE: " + args.valuesOf(OPT_DELETE).toString());
-                            @SuppressWarnings("unchecked") List<String> aids = (List<String>) args.valuesOf(OPT_DELETE);
+                            @SuppressWarnings("unchecked") List<String> aids
+                                    = (List<String>) args.valuesOf(OPT_DELETE);
 
                             for (String s : aids) {
                                 AID aid = AID.fromString(s);
                                 try {
-                                    // If the AID represents a package or otherwise force is enabled.
-                                    gp.deleteAID(aid, reg.allPackageAIDs().contains(aid) || args.has(OPT_FORCE));
+                                    // If the AID represents a package or 
+                                    //otherwise force is enabled.
+                                    gp.deleteAID(aid,
+                                            reg.allPackageAIDs().contains(aid)
+                                            || args.has(OPT_FORCE));
                                 } catch (GPException e) {
-                                    if (!gp.getRegistry().allAIDs().contains(aid)) {
-                                        logger.error("Could not delete AID (not present on card): " + aid);
+                                    statusMessage.setCode(
+                                            StatusMessage.Code.FAILURE);
+                                    if (!gp.getRegistry().allAIDs()
+                                            .contains(aid)) {
+                                        logger.error("executeCommand:Could not "
+                                                + "delete AID "
+                                                + "(not present on card): "
+                                                + aid);
+                                        statusMessage.setMessage(
+                                                "Unable to delete AID "
+                                                + "(not present on card): "
+                                                + aid);
                                     } else {
-                                        logger.error("Could not delete AID: " + aid);
+                                        logger.error("Could not delete AID: "
+                                                + aid);
+                                        statusMessage.setMessage("Could not "
+                                                + "delete AID: " + aid);
                                         if (e.sw == 0x6985) {
-                                            logger.error("Deletion not allowed. Some app still active?");
+                                            logger.error("executeCommand:"
+                                                    + "Deletion not allowed."
+                                                    + " Some app still active?");
+                                            statusMessage.setMessage(
+                                                    "Deletion not allowed."
+                                                    + " Some app still active?");
                                         } else {
-                                            logger.error("", e);
+                                            logger.error(
+                                                    "executeCommand:DELETE:", e);
                                         }
                                     }
                                     return false;
                                 }
                             }
+                            statusMessage.setCode(StatusMessage.Code.SUCCESS);
+                            statusMessage.setMessage("Application deleted "
+                                    + "successfully");
                             //}
                             break;
                         case INSTALL:
                             //if (args.has(OPT_INSTALL)) {
                             capfile = (File) args.valueOf(OPT_INSTALL);
 
-                            instcap = CAPFile.fromStream(new FileInputStream(capfile));
+                            instcap = CAPFile.fromStream(
+                                    new FileInputStream(capfile));
 
                             if (args.has(OPT_VERBOSE)) {
                                 instcap.dump(System.out);
@@ -601,25 +734,37 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
 
                             //GPRegistry reg = gp.getRegistry();
                             // Remove existing load file
-                            if (args.has(OPT_FORCE) && reg.allPackageAIDs().contains(instcap.getPackageAID())) {
+                            if (args.has(OPT_FORCE)
+                                    && reg.allPackageAIDs().contains(
+                                            instcap.getPackageAID())) {
                                 gp.deleteAID(instcap.getPackageAID(), true);
                             }
-
                             // Load
                             // TODO: handle DAP here as well
                             if (instcap.getAppletAIDs().size() <= 1) {
                                 try {
                                     AID target = null;
                                     if (args.has(OPT_TO)) {
-                                        target = AID.fromString(args.valueOf(OPT_TO));
+                                        target = AID.fromString(
+                                                args.valueOf(OPT_TO));
                                     }
                                     gp.loadCapFile(instcap, target);
                                     logger.info("CAP loaded");
                                 } catch (GPException e) {
+                                    statusMessage.setCode(
+                                            StatusMessage.Code.FAILURE);
+                                    statusMessage.setMessage("Unable to install, "
+                                            + "please try some other application.");
                                     if (e.sw == 0x6985 || e.sw == 0x6A80) {
-                                        logger.error("Loading failed. Are you sure the CAP file (JC version, packages, sizes) is compatible with your card?");
+                                        logger.error("Loading failed. "
+                                                + "Are you sure the CAP file "
+                                                + "(JC version, packages, sizes)"
+                                                + " is compatible with your card?");
+                                        statusMessage.setMessage("Installation failed,"
+                                                + " please make sure that application "
+                                                + "is compatible with your card.");
                                     }
-                                    logger.error("", e);
+                                    logger.error("executeCommand:INSTALL:", e);
                                     return false;
                                 }
                             }
@@ -628,12 +773,22 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                             final AID appaid;
                             final AID instanceaid;
                             if (instcap.getAppletAIDs().size() == 0) {
+                                statusMessage.setCode(
+                                        StatusMessage.Code.FAILURE);
+                                statusMessage.setMessage("Unable to execute "
+                                        + exeArgs.getCmd() + " command");
                                 return false;
                             } else if (instcap.getAppletAIDs().size() > 1) {
                                 if (args.has(OPT_APPLET)) {
                                     appaid = AID.fromString(args.valueOf(OPT_APPLET));
                                 } else {
-                                    logger.error("CAP contains more than one applet, specify the right one");
+                                    logger.info("CAP contains more than one "
+                                            + "applet, specify the right one");
+                                    statusMessage.setCode(
+                                            StatusMessage.Code.FAILURE);
+                                    statusMessage.setMessage("Executable contain"
+                                            + " more than one applet,"
+                                            + " specify the right one");
                                     return false;
                                 }
                             } else {
@@ -650,42 +805,73 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                             GPRegistryEntry.Privileges privs = getInstPrivs(args);
 
                             // Remove existing default app
-                            if (args.has(OPT_FORCE) && (reg.getDefaultSelectedAID() != null && privs.has(GPRegistryEntry.Privilege.CardReset))) {
+                            if (args.has(OPT_FORCE)
+                                    && (reg.getDefaultSelectedAID() != null
+                                    && privs.has(
+                                            GPRegistryEntry.Privilege.CardReset))) {
                                 gp.deleteAID(reg.getDefaultSelectedAID(), false);
                             }
 
                             // warn
-                            if (gp.getRegistry().allAppletAIDs().contains(instanceaid)) {
-                                logger.warn("WARNING: Applet " + instanceaid + " already present on card");
+                            if (gp.getRegistry().allAppletAIDs()
+                                    .contains(instanceaid)) {
+                                logger.warn("WARNING: Applet " + instanceaid
+                                        + " already present on card");
                             }
 
                             // shoot
-                            gp.installAndMakeSelectable(instcap.getPackageAID(), appaid, instanceaid, privs, getInstParams(args), null);
+                            gp.installAndMakeSelectable(instcap.getPackageAID(),
+                                    appaid, instanceaid, privs,
+                                    getInstParams(args), null);
+                            statusMessage.setCode(StatusMessage.Code.SUCCESS);
+                            statusMessage.setMessage(capfile.getName()
+                                    + " application successfully installed");
                             //}
                             break;
                         case UNINSTALL:
                             //if (args.has(OPT_UNINSTALL)) {
                             capfile = (File) args.valueOf(OPT_UNINSTALL);
-                            instcap = CAPFile.fromStream(new FileInputStream(capfile));
+                            instcap = CAPFile.fromStream(
+                                    new FileInputStream(capfile));
                             AID aid = instcap.getPackageAID();
                             if (!gp.getRegistry().allAIDs().contains(aid)) {
                                 System.out.println(aid + " is not present on card!");
+                                statusMessage.setCode(StatusMessage.Code.FAILURE);
+                                statusMessage.setMessage(aid + " is not present on card!");
+                                logger.info("executeCommand:" + aid + " is not present on card!");
+                                return false;
                             } else {
                                 gp.deleteAID(aid, true);
+                                statusMessage.setCode(StatusMessage.Code.SUCCESS);
+                                statusMessage.setMessage(aid + " deleted successfully");
                                 System.out.println(aid + " deleted.");
+                                logger.info(aid + " deleted successfully");
                             }
                             //}
                             break;
                     }
                     return true;
                 } else {
+                    statusMessage.setCode(StatusMessage.Code.FAILURE);
+                    statusMessage.setMessage("Unable to execute "
+                            + exeArgs.getCmd() + " command");
                     return false;
                 }
             } catch (CardException e) {
-                logger.error("Could not connect to " + exeArgs.getJavaCardReaderBean().getReaderName() + ": " + TerminalManager.getExceptionMessage(e));
+                logger.error("executeCommand:Could not connect to "
+                        + exeArgs.getJavaCardReaderBean().getReaderName()
+                        + ": " + TerminalManager.getExceptionMessage(e), e);
+                statusMessage.setCode(StatusMessage.Code.FAILURE);
+                statusMessage.setMessage("Could not connect to "
+                        + exeArgs.getJavaCardReaderBean().getReaderName());
                 return false;
             } catch (GPException ex) {
-                logger.error("Unable to get list of applets" + ex.getMessage());
+                logger.error("executeCommand:Unable to execute "
+                        + exeArgs.getCmd() + " command", ex);
+                statusMessage.setCode(StatusMessage.Code.FAILURE);
+                statusMessage.setMessage("Unable to execute "
+                        + exeArgs.getCmd() + " command, due to "
+                        + ex.getCause());
                 return false;
             } finally {
                 if (card != null) {
@@ -695,11 +881,19 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                 }
             }
         } else {
-            logger.info("Card is not present in reader");
+            logger.info("executeCommand:Card is not present in reader");
+            statusMessage.setCode(StatusMessage.Code.FAILURE);
+            statusMessage.setMessage("Card is not present in reader");
             return false;
         }
     }
 
+    /**
+     *
+     * @param reg
+     * @param javaCardBean
+     * @param verbose
+     */
     public static void listRegistry(GPRegistry reg, JavaCardBean javaCardBean, boolean verbose) {
         //Set package related details
         List<GPRegistryEntryPkg> pkgs = reg.allPackages();
@@ -824,15 +1018,18 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
         return privs;
     }
 
-    private static GPRegistryEntry.Privileges addPrivs(GPRegistryEntry.Privileges privs, String v) {
+    private static GPRegistryEntry.Privileges addPrivs(
+            GPRegistryEntry.Privileges privs, String v) {
         if (v == null) {
             return privs;
         }
         String[] parts = v.split(",");
         for (String s : parts) {
-            GPRegistryEntry.Privilege p = GPRegistryEntry.Privilege.lookup(s.trim());
+            GPRegistryEntry.Privilege p
+                    = GPRegistryEntry.Privilege.lookup(s.trim());
             if (p == null) {
-                throw new IllegalArgumentException("Unknown privilege: " + s.trim());
+                throw new IllegalArgumentException(
+                        "Unknown privilege: " + s.trim());
             } else {
                 privs.add(p);
             }

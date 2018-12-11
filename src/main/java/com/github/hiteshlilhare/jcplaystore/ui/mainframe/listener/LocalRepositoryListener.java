@@ -5,10 +5,14 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener;
 
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
+import java.util.ArrayList;
+
 /**
  *
  * @author Hitesh
  */
 public interface LocalRepositoryListener {
-    public void updateUI();
+    public void updateLocalAppStoreUI(ArrayList<CardAppMetaData> 
+            downloadedApps);
 }

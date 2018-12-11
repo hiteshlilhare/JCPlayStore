@@ -9,6 +9,7 @@ import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardLayoutSelectionChangeListener;
+import com.github.hiteshlilhare.jcplaystore.ui.util.LocalRepositoryMonitorTimerTask;
 import com.github.hiteshlilhare.jcplaystore.ui.util.ReleaseMonitorTimerTask;
 import java.awt.BasicStroke;
 import java.awt.CardLayout;
@@ -45,6 +46,9 @@ public class CardLayoutPanel extends javax.swing.JPanel {
         //Release monitor.
         ReleaseMonitorTimerTask.getInstance()
                 .setRemoteRepositoryListener(appCartsPanel);
+        //Local app store monitor.
+        LocalRepositoryMonitorTimerTask.getInstance()
+                .setLocalRepositoryListener(appCartsPanel);
 
         appDetailsPanel = new AppDetailsPanel();
 

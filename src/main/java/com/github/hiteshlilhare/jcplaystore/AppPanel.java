@@ -7,6 +7,7 @@ package com.github.hiteshlilhare.jcplaystore;
 
 import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.AppsCart;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.CardLayoutPanel;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.AppPanelActionListener;
@@ -33,7 +34,7 @@ public class AppPanel extends JPanel {
     public static final int WIDTH = 197;
 
     public enum ACTIONS {
-        LIST, DELETE, INSTALL, UPDATE, DOWNLOAD;
+        LIST, DELETE, INSTALL, UPDATE, DOWNLOAD, BUILD;
     }
 
     /**
@@ -51,7 +52,8 @@ public class AppPanel extends JPanel {
         setOpaque(false);
         initComponents();
         initialize();
-        summaryTextArea.append(System.lineSeparator() + cardAppDetail.getAid());
+        summaryTextArea.append(System.lineSeparator() 
+                + cardAppDetail.getAid());
     }
 
     public AppPanel(AppReleaseDetails appReleaseDetails) {
@@ -60,14 +62,26 @@ public class AppPanel extends JPanel {
         setOpaque(false);
         initComponents();
         initialize();
-        summaryTextArea.append(System.lineSeparator() + appReleaseDetails.getRemarks());
+        summaryTextArea.append(System.lineSeparator() 
+                + appReleaseDetails.getRemarks());
+    }
+    
+    public AppPanel(CardAppMetaData downloadedApp) {
+        this.downloadedApp = downloadedApp;
+        cartId = AppsCart.ID.LOCAL_APP;
+        setOpaque(false);
+        initComponents();
+        initialize();
+        summaryTextArea.append(System.lineSeparator() 
+                + downloadedApp.getCompany());
     }
 
-    public void setButtonsVisibility(boolean[] diudFlags) {
-        deleteButton.setVisible(diudFlags[0]);
-        installButton.setVisible(diudFlags[1]);
-        updateButton.setVisible(diudFlags[2]);
-        downloadButton.setVisible(diudFlags[3]);
+    public void setButtonsVisibility(boolean[] diudbFlags) {
+        deleteButton.setVisible(diudbFlags[0]);
+        installButton.setVisible(diudbFlags[1]);
+        updateButton.setVisible(diudbFlags[2]);
+        downloadButton.setVisible(diudbFlags[3]);
+        buildButton.setVisible(diudbFlags[4]);
     }
 
     private void handleRating() {
@@ -122,6 +136,7 @@ public class AppPanel extends JPanel {
         installButton = new javax.swing.JButton();
         downloadButton = new javax.swing.JButton();
         deleteButton = new javax.swing.JButton();
+        buildButton = new javax.swing.JButton();
         emvLabelPanel = new javax.swing.JPanel();
         emvLabel = new javax.swing.JLabel();
 
@@ -215,6 +230,19 @@ public class AppPanel extends JPanel {
             }
         });
         buttonPanel.add(deleteButton);
+
+        buildButton.setBackground(new java.awt.Color(255, 255, 255));
+        buildButton.setFont(new java.awt.Font("Segoe UI", 0, 11)); // NOI18N
+        buildButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/build_icon_32.png"))); // NOI18N
+        buildButton.setToolTipText("Build");
+        buildButton.setBorder(null);
+        buildButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                buildButtonActionPerformed(evt);
+            }
+        });
+        buttonPanel.add(buildButton);
+        buildButton.getAccessibleContext().setAccessibleDescription("Build");
 
         emvLabelPanel.setBackground(new java.awt.Color(255, 51, 0));
         emvLabelPanel.setForeground(new java.awt.Color(255, 255, 255));
@@ -330,6 +358,10 @@ public class AppPanel extends JPanel {
         // TODO add your handling code here:
     }//GEN-LAST:event_emvLabelMouseClicked
 
+    private void buildButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_buildButtonActionPerformed
+        notifyAllListeners(ACTIONS.BUILD.toString());
+    }//GEN-LAST:event_buildButtonActionPerformed
+
     public void setCardLayoutSelectionChangeListener(CardLayoutSelectionChangeListener listener) {
         this.cardLayoutSelectionChangeListener = listener;
     }
@@ -403,11 +435,13 @@ public class AppPanel extends JPanel {
 
     private CardAppDetail cardAppDetail;
     private AppReleaseDetails appReleaseDetails;
+    private CardAppMetaData downloadedApp;
     private CardLayoutSelectionChangeListener cardLayoutSelectionChangeListener;
     private ArrayList<AppPanelActionListener> appPanelActionListeners = new ArrayList<>();
     private int col_idx;
     private AppsCart.ID cartId;
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton buildButton;
     private javax.swing.JPanel buttonPanel;
     private javax.swing.JButton deleteButton;
     private javax.swing.JButton downloadButton;

@@ -9,18 +9,21 @@ import com.github.hiteshlilhare.jcplaystore.AppPanel;
 import com.github.hiteshlilhare.jcplaystore.JCConstants;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
+import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.jcinterface.GlobalPlatformProInterface;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelCellEditor;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelCellRenderer;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelTableModel;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.AppPanelActionListener;
 import com.github.hiteshlilhare.jcplaystore.ui.util.ModernScrollPane;
+import com.github.hiteshlilhare.jcplaystore.ui.util.StatusMessage;
 import com.github.hiteshlilhare.jcplaystore.ui.util.UnzipUtility;
 import com.github.hiteshlilhare.jcplaystore.ui.util.Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
@@ -30,7 +33,6 @@ import java.awt.event.MouseMotionAdapter;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -38,8 +40,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -50,7 +50,6 @@ import javax.swing.border.TitledBorder;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import org.apache.commons.io.FileUtils;
-import org.bouncycastle.openpgp.PGPException;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -88,6 +87,11 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
 
     public void setBorderTitle(String title) {
         titledBorder.setTitle(title);
+    }
+
+    public void setBorderTitleColor(Color color) {
+        titledBorder.setTitleColor(color);
+        repaint();
     }
 
     final public void initialize() {
@@ -232,8 +236,41 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
             cellAppPanel = (AppPanel) table.getModel().getValueAt(0, col_index);
             if (cellAppPanel.getAppReleaseDetails().getID().equalsIgnoreCase(
                     app.getAppReleaseDetails().getID())) {
-                System.out.println(app.getAppReleaseDetails().getID()
-                        + " is already there.");
+                //System.out.println(app.getAppReleaseDetails().getID()
+                //        + " is already there.");
+                return;
+            }
+        }
+        app.addAppPanelActionListener(this);
+        app.setColIdx(count);
+        //System.out.println("Adding " + app.getCardAppDetail().getAid());
+
+        ((AppPanelTableModel) table.getModel()).addColumn(app);
+        count = columnModel.getColumnCount();
+        //System.out.println("column count = " + count);
+        for (int i = 0; i < count; i++) {
+            columnModel.getColumn(i).setPreferredWidth(AppPanel.WIDTH);
+            columnModel.getColumn(i).setMaxWidth(AppPanel.WIDTH);
+            columnModel.getColumn(i).setMinWidth(AppPanel.WIDTH);
+        }
+    }
+    
+    /**
+     * Add App Panel in Local Store AppCart.
+     *
+     * @param app
+     */
+    public void addAppPanelInLocalStoreAppCart(AppPanel app) {
+        TableColumnModel columnModel = table.getColumnModel();
+        int count = columnModel.getColumnCount();
+        System.out.println("Column count before = " + count);
+        AppPanel cellAppPanel;
+        for (int col_index = 0; col_index < count; col_index++) {
+            cellAppPanel = (AppPanel) table.getModel().getValueAt(0, col_index);
+            if (cellAppPanel.getAppReleaseDetails().getID().equalsIgnoreCase(
+                    app.getAppReleaseDetails().getID())) {
+                //System.out.println(app.getAppReleaseDetails().getID()
+                //        + " is already there.");
                 return;
             }
         }
@@ -262,7 +299,7 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
      * @param deleteApp
      * @return
      */
-    public boolean removeAppPanel(boolean deleteApp, int idx) {
+    private boolean removeAppPanelFromInstalledAppsPanel(boolean deleteApp, int idx) {
         TableColumn column = table.getColumnModel().getColumn(idx);
         AppPanel cellAppPanel = (AppPanel) table.getModel().getValueAt(0, idx);
         logger.info("AppPanel Object col idx = " + cellAppPanel.getColIdx()
@@ -300,13 +337,71 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
     /**
      * Removes all AppPanel from the AppCart Note: This method is being called
      * in consequence of selection change event of Reader Node.
+     *
+     * @param appsCartId
      */
-    public void removeAllAppPanelsFromUIOnly() {
+    public void removeAllAppPanelsFromUIOnly(AppsCart.ID appsCartId) {
         TableColumnModel columnModel = table.getColumnModel();
         int count = columnModel.getColumnCount();
         for (int i = count - 1; i >= 0; i--) {
-            removeAppPanel(false, i);
+            if (appsCartId == AppsCart.ID.INSATLLED_APP) {
+                removeAppPanelFromInstalledAppsPanel(false, i);
+            } else if (appsCartId == AppsCart.ID.PLAYSTORE_APP) {
+                removeAppPanelFromPlayStoreAppsPanel(i);
+            } else if (appsCartId == AppsCart.ID.LOCAL_APP) {
+                removeAppPanelFromLocalAppsPanel(i);
+            }
         }
+    }
+
+    private boolean removeAppPanelFromLocalAppsPanel(int idx) {
+        TableColumn column = table.getColumnModel().getColumn(idx);
+        AppPanel cellAppPanel = (AppPanel) table.getModel().getValueAt(0, idx);
+        logger.info("AppPanel Object col idx = " + cellAppPanel.getColIdx()
+                + " AppCart Object col idx. " + idx + " Both has to be same.");
+        logger.info("AppPanel Object aid " + cellAppPanel.getCardAppDetail().getAid());
+
+        //Remove from UI Panel
+        table.removeColumn(column);
+        //Remove from table model
+        ((AppPanelTableModel) table.getModel()).removeColumn(idx);
+        //Update col_idx for each AppPanels after removed one. 
+        TableColumnModel columnModel = table.getColumnModel();
+        int count = columnModel.getColumnCount();
+        int colIdxDiff = count - idx;
+        if (colIdxDiff > 1) {
+            for (int colIdx = idx; colIdx < count; colIdx++) {
+                cellAppPanel = (AppPanel) table.getModel().getValueAt(0, colIdx);
+                cellAppPanel.setColIdx(cellAppPanel.getColIdx() - 1);
+            }
+        }
+        //end of updation.
+        return true;
+    }
+
+    private boolean removeAppPanelFromPlayStoreAppsPanel(int idx) {
+        TableColumn column = table.getColumnModel().getColumn(idx);
+        AppPanel cellAppPanel = (AppPanel) table.getModel().getValueAt(0, idx);
+        logger.info("AppPanel Object col idx = " + cellAppPanel.getColIdx()
+                + " AppCart Object col idx. " + idx + " Both has to be same.");
+        logger.info("AppPanel Object aid " + cellAppPanel.getCardAppDetail().getAid());
+
+        //Remove from UI Panel
+        table.removeColumn(column);
+        //Remove from table model
+        ((AppPanelTableModel) table.getModel()).removeColumn(idx);
+        //Update col_idx for each AppPanels after removed one. 
+        TableColumnModel columnModel = table.getColumnModel();
+        int count = columnModel.getColumnCount();
+        int colIdxDiff = count - idx;
+        if (colIdxDiff > 1) {
+            for (int colIdx = idx; colIdx < count; colIdx++) {
+                cellAppPanel = (AppPanel) table.getModel().getValueAt(0, colIdx);
+                cellAppPanel.setColIdx(cellAppPanel.getColIdx() - 1);
+            }
+        }
+        //end of updation.
+        return true;
     }
 
     /**
@@ -318,20 +413,25 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
     private void deleteAppletFromCard(String aid, String readerName) {
         try {
             //Remove from UI panel, remove from JavaCardBean and delete from java card
-            boolean flag = GlobalPlatformProInterface.getInstance().deleteApplet(readerName, aid);
+            boolean flag = GlobalPlatformProInterface.getInstance()
+                    .deleteApplet(readerName, aid);
             if (flag) {
-                logger.info("Applet " + aid + " deleted from java card.");
-                flag = removeAppPanel(true, selCol);
+                logger.info("deleteAppletFromCard:Applet "
+                        + aid + " deleted from java card.");
+                flag = removeAppPanelFromInstalledAppsPanel(true, selCol);
                 if (flag) {
-                    logger.info("Applet " + aid + " removed from Insatlled App Panel.");
+                    logger.info("deleteAppletFromCard:Applet "
+                            + aid + " removed from Insatlled App Panel.");
                 } else {
-                    logger.info("Failed to remove " + aid + " Applet from Insatlled App Panel.");
+                    logger.info("deleteAppletFromCard:Failed to remove "
+                            + aid + " Applet from Insatlled App Panel.");
                 }
             } else {
-                logger.info("Failed to delete " + aid + " Applet from java card.");
+                logger.info("deleteAppletFromCard:Failed to delete "
+                        + aid + " Applet from java card.");
             }
         } catch (Exception ex) {
-            logger.info("deleteAppletFromCard", ex);
+            logger.info("deleteAppletFromCard:", ex);;
         }
     }
 
@@ -364,142 +464,91 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
         Gson gsonBuilder = new GsonBuilder().create();
         String appReleaseDetailsJson = gsonBuilder.toJson(appReleaseDetails);
         if (action.equalsIgnoreCase(AppPanel.ACTIONS.INSTALL.toString())) {
+            System.out.println("Installing Applet...");
+            try {
+                StatusMessage statusMessage = new StatusMessage();
+                boolean status = downloadAppFromAppStore(appReleaseDetailsJson,
+                        appReleaseDetails, AppPanel.ACTIONS.INSTALL, statusMessage);
+                if (!status) {
+                    Util.showInformationMessageDialog(statusMessage.getMessage(),
+                            "Install");
+                    return;
+                }
+                //Install Applet.
+                Path destDir = Paths.get(JCConstants.JC_APP_BASE_DIR,
+                        JCConstants.JC_TEMP_DIR,
+                        appReleaseDetails.getDeveloperId(),
+                        appReleaseDetails.getAppName(),
+                        appReleaseDetails.getVersion());
+                File appFiles[] = destDir.toFile().listFiles((File file) -> {
+                    return file.getName().endsWith(".cap");
+                });
+                if (appFiles.length == 0) {
+                    logger.info(appReleaseDetails.getAppName()
+                            + " application executable does not exist at "
+                            + destDir.toString());
+                    Util.showInformationMessageDialog("Unabe to install "
+                            + appReleaseDetails.getAppName()
+                            + " application, please check log for detailed"
+                            + " information", "Install");
+                    return;
+                }
+                JavaCardReaderBean javaCardReaderBean
+                        = ((AppCartsPanel) getParent()).getJavaCardReaderBean();
+                GlobalPlatformProInterface.getInstance(MainFrame.SPEC)
+                        .installApplet(javaCardReaderBean,
+                                statusMessage,
+                                appFiles[0].getAbsolutePath());
+                if (statusMessage.getCode() == StatusMessage.Code.SUCCESS) {
+                    //Show newly installed app in installed apps panel.
+                    GlobalPlatformProInterface.getInstance().getListOfApplets(
+                            javaCardReaderBean,
+                            true);
+                    ((AppCartsPanel) getParent()).updateInstalledAppCart(
+                            javaCardReaderBean);
 
+                } else {
+                    Util.showInformationMessageDialog(statusMessage.getMessage(),
+                            "Install");
+                }
+
+            } catch (IOException ex) {
+                logger.error("performAction", ex);
+                Util.showInformationMessageDialog("Unabe to install "
+                        + appReleaseDetails.getAppName()
+                        + " application, please check log for detailed"
+                        + " information",
+                        "Install");
+            } catch (jnasmartcardio.Smartcardio.JnaPCSCException ex) {
+                logger.error("performAction", ex);
+                Util.showInformationMessageDialog(
+                        "Please connect/reconnect smart card reader",
+                        "Install");
+            } catch (Exception ex) {
+                logger.error("performAction", ex);
+                Util.showInformationMessageDialog("Unabe to install "
+                        + appReleaseDetails.getAppName()
+                        + " application, please check log for detailed"
+                        + " information",
+                        "Install");
+            }
         } else if (action.equalsIgnoreCase(AppPanel.ACTIONS.DOWNLOAD.toString())) {
             try {
-                String responseJson = Util.doPostRequest(Util.GET_APP_SERVICE,
-                        appReleaseDetailsJson);
-                JsonParser jsonParser = new JsonParser();
-                JsonObject responseJsonObj = jsonParser.parse(responseJson)
-                        .getAsJsonObject();
-                String responseStatus = responseJsonObj.get("Status").getAsString();
-                if (responseStatus.equalsIgnoreCase("SUCCESS")) {
-                    //Download the artifacts
-                    //System.out.println("Download....");
-                    String fileName = appReleaseDetails.getDeveloperId() + "."
-                            + appReleaseDetails.getAppName() + "."
-                            + appReleaseDetails.getVersion() + ".zip";
-                    Path appZipPath = Paths.get(JCConstants.JC_APP_BASE_DIR,
-                            JCConstants.JC_TEMP_DIR, fileName);
-                    try (InputStream in = new URL(Util.DOWNLOAD_APP_SERVICE
-                            + "?fileName=" + fileName).openStream()) {
-                        Files.copy(in,
-                                appZipPath,
-                                StandardCopyOption.REPLACE_EXISTING);
-                    }
-                    if (!Util.isZipFile(appZipPath.toFile())) {
-                        logger.info("performAction:Downloaded "
-                                + appReleaseDetails.getAppName()
-                                + " Application file is not proper");
-                        Util.showInformationMessageDialog("Download of "
-                                + appReleaseDetails.getAppName()
-                                + " application is unsuccessful",
-                                "Download");
-                        return;
-                    }
+                StatusMessage statusMessage = new StatusMessage();
+                downloadAppFromAppStore(appReleaseDetailsJson,
+                        appReleaseDetails,
+                        AppPanel.ACTIONS.DOWNLOAD,
+                        statusMessage);
+                if (statusMessage.getCode() == StatusMessage.Code.SUCCESS) {
 
-                    //unzip the file
-                    Path destDir = Paths.get(JCConstants.JC_APP_BASE_DIR,
-                            JCConstants.JC_APPS_DIR,
-                            appReleaseDetails.getDeveloperId(),
-                            appReleaseDetails.getAppName(),
-                            appReleaseDetails.getVersion());
-
-                    try {
-                        FileUtils.deleteDirectory(destDir.toFile());
-                    } catch (IOException e) {
-                        logger.info("performAction:Unable to delete existing "
-                                + destDir.toString() + " application directory", e);
-                        Util.showInformationMessageDialog("Download of "
-                                + appReleaseDetails.getAppName()
-                                + " application is unsuccessful",
-                                "Download");
-                        return;
-                    }
-                    //make empty directories
-                    FileUtils.forceMkdir(destDir.toFile());
-                    //Unzip to this dirctory
-                    UnzipUtility.unzip(appZipPath.toString(),
-                            destDir.getParent().toString());
-                    //delete zip file
-                    FileUtils.forceDelete(appZipPath.toFile());
-
-                    //validate signature of artifacts
-                    ////validate cap and xml file
-                    File[] appArtifacts = destDir.toFile().listFiles(new FileFilter() {
-                        @Override
-                        public boolean accept(File file) {
-                            if (file.isFile()
-                                    && (file.getName().endsWith(".cap")
-                                    || file.getName().endsWith(".xml"))) {
-                                return true;
-                            }
-                            return false;
-                        }
-                    });
-                    
-                    boolean isAppVerified = true;
-                    for (File appArtifact : appArtifacts) {
-                        InputStream serverPubKey = new BufferedInputStream(
-                            getClass().getResourceAsStream(
-                                    "/keys/jcps.server.pub.gpg"));
-                        boolean verified = Util.verifySignature(
-                                appArtifact.getAbsolutePath(),
-                                appArtifact.getAbsolutePath() + ".sig",
-                                serverPubKey);
-                        if (verified) {
-                            System.out.println(appArtifact.getName()
-                                    + " signature verified successfully");
-                        } else {
-                            isAppVerified = false;
-                            System.out.println("Failed to verify "
-                                    + appArtifact.getName() + " signature");
-                        }
-                    }
-                    ////validate icon files.
-                    File appIconDir = Paths.get(destDir.toString(), "appicon").toFile();
-                    File[] appIcons = appIconDir.listFiles(new FileFilter() {
-                        @Override
-                        public boolean accept(File file) {
-                            if (file.isFile() 
-                                    && !file.getName().endsWith(".sig")) {
-                                return true;
-                            }
-                            return false;
-                        }
-                    });
-                    for (File appIcon : appIcons) {
-                        InputStream serverPubKey = new BufferedInputStream(
-                            getClass().getResourceAsStream(
-                                    "/keys/jcps.server.pub.gpg"));
-                        boolean verified = Util.verifySignature(
-                                appIcon.getAbsolutePath(),
-                                appIcon.getAbsolutePath() + ".sig",
-                                serverPubKey);
-                        if (verified) {
-                            System.out.println(appIcon.getName()
-                                    + " signature verified successfully");
-                        } else {
-                            isAppVerified = false;
-                            System.out.println("Failed to verify "
-                                    + appIcon.getName() + " signature");
-                        }
-                    }
-                    if (!isAppVerified) {
-                        logger.info(appReleaseDetails.getAppName()
-                                + " application signature verification failed");
-                        Util.showInformationMessageDialog("Download of "
-                                + appReleaseDetails.getAppName()
-                                + " application is unsuccessful",
-                                "Download");
-                        return;
-                    }
-
-                    Util.showInformationMessageDialog(appReleaseDetails.getAppName()
-                            +" downloaded successfully", "Download");
+                    Util.showInformationMessageDialog(statusMessage.getMessage(),
+                            "Download");
                 } else {
-                    Util.showInformationMessageDialog(responseStatus, "Download");
+                    Util.showInformationMessageDialog(
+                            statusMessage.getMessage(),
+                            "Download");
                 }
+
             } catch (IOException ex) {
                 logger.error("performAction", ex);
                 Util.showInformationMessageDialog("Download of "
@@ -507,6 +556,149 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
                         + " application is unsuccessful",
                         "Download");
             }
+        } else if (action.equalsIgnoreCase(AppPanel.ACTIONS.BUILD.toString())) {
+            System.out.println("Performing Build...");
+        }
+    }
+
+    private boolean downloadAppFromAppStore(String appReleaseDetailsJson,
+            AppReleaseDetails appReleaseDetails, AppPanel.ACTIONS action,
+            StatusMessage statusMessage)
+            throws IOException, JsonSyntaxException {
+        String responseJson = Util.doPostRequest(Util.GET_APP_SERVICE,
+                appReleaseDetailsJson);
+        logger.info(Util.GET_APP_SERVICE + ":response:" + responseJson);
+        JsonParser jsonParser = new JsonParser();
+        JsonObject responseJsonObj = jsonParser.parse(responseJson)
+                .getAsJsonObject();
+        String responseStatus = responseJsonObj.get("Status").getAsString();
+        if (responseStatus.equalsIgnoreCase("SUCCESS")) {
+            //Download the artifacts
+            //System.out.println("Download....");
+            String fileName = appReleaseDetails.getDeveloperId() + "."
+                    + appReleaseDetails.getAppName() + "."
+                    + appReleaseDetails.getVersion() + ".zip";
+            Path appZipPath = Paths.get(JCConstants.JC_APP_BASE_DIR,
+                    JCConstants.JC_TEMP_DIR, fileName);
+            try (InputStream in = new URL(Util.DOWNLOAD_APP_SERVICE
+                    + "?fileName=" + fileName).openStream()) {
+                Files.copy(in,
+                        appZipPath,
+                        StandardCopyOption.REPLACE_EXISTING);
+            }
+            if (!Util.isZipFile(appZipPath.toFile())) {
+                logger.info("performAction:Downloaded "
+                        + appReleaseDetails.getAppName()
+                        + " Application file is not proper");
+                statusMessage.setCode(StatusMessage.Code.FAILURE);
+                statusMessage.setMessage("Download of "
+                        + appReleaseDetails.getAppName()
+                        + " application is unsuccessful");
+                return false;
+            }
+            //unzip the file
+            Path destDir = Paths.get(JCConstants.JC_APP_BASE_DIR,
+                    (action == AppPanel.ACTIONS.DOWNLOAD
+                            ? JCConstants.JC_APPS_DIR
+                            : JCConstants.JC_TEMP_DIR),
+                    appReleaseDetails.getDeveloperId(),
+                    appReleaseDetails.getAppName(),
+                    appReleaseDetails.getVersion());
+            try {
+                FileUtils.deleteDirectory(destDir.toFile());
+            } catch (IOException e) {
+                logger.info("performAction:Unable to delete existing "
+                        + destDir.toString() + " application directory", e);
+                statusMessage.setCode(StatusMessage.Code.FAILURE);
+                statusMessage.setMessage("Download of "
+                        + appReleaseDetails.getAppName()
+                        + " application is unsuccessful");
+                return false;
+            }
+            //make empty directories
+            FileUtils.forceMkdir(destDir.toFile());
+            //Unzip to this dirctory
+            UnzipUtility.unzip(appZipPath.toString(),
+                    destDir.getParent().toString());
+            //delete zip file
+            FileUtils.forceDelete(appZipPath.toFile());
+            //validate signature of artifacts
+            ////validate cap and xml file
+            File[] appArtifacts = destDir.toFile().listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File file) {
+                    if (file.isFile()
+                            && (file.getName().endsWith(".cap")
+                            || file.getName().endsWith(".xml"))) {
+                        return true;
+                    }
+                    return false;
+                }
+            });
+            for (File appArtifact : appArtifacts) {
+                InputStream serverPubKey = new BufferedInputStream(
+                        getClass().getResourceAsStream(
+                                "/keys/jcps.server.pub.gpg"));
+                boolean verified = Util.verifySignature(
+                        appArtifact.getAbsolutePath(),
+                        appArtifact.getAbsolutePath() + ".sig",
+                        serverPubKey);
+                if (verified) {
+                    logger.info(appArtifact.getName()
+                            + " signature verified successfully");
+                } else {
+                    logger.info("Failed to verify " + appArtifact.getName()
+                            + " signature");
+                    statusMessage.setCode(StatusMessage.Code.FAILURE);
+                    statusMessage.setMessage("Download of "
+                            + appReleaseDetails.getAppName()
+                            + " application is unsuccessful");
+                    return false;
+                }
+            }
+            ////validate icon files.
+            File appIconDir = Paths.get(destDir.toString(), "appicon").toFile();
+            File[] appIcons = appIconDir.listFiles(new FileFilter() {
+                @Override
+                public boolean accept(File file) {
+                    if (file.isFile()
+                            && !file.getName().endsWith(".sig")) {
+                        return true;
+                    }
+                    return false;
+                }
+            });
+            for (File appIcon : appIcons) {
+                InputStream serverPubKey = new BufferedInputStream(
+                        getClass().getResourceAsStream(
+                                "/keys/jcps.server.pub.gpg"));
+                boolean verified = Util.verifySignature(
+                        appIcon.getAbsolutePath(),
+                        appIcon.getAbsolutePath() + ".sig",
+                        serverPubKey);
+                if (verified) {
+                    logger.info(appIcon.getName()
+                            + " signature verified successfully");
+                } else {
+                    logger.info("Failed to verify "
+                            + appIcon.getName() + " signature");
+                    statusMessage.setCode(StatusMessage.Code.FAILURE);
+                    statusMessage.setMessage("Download of "
+                            + appReleaseDetails.getAppName()
+                            + " application is unsuccessful");
+                    return false;
+                }
+            }
+            logger.info(appReleaseDetails.getAppName()
+                    + " downloaded successfully");
+            statusMessage.setCode(StatusMessage.Code.SUCCESS);
+            statusMessage.setMessage(appReleaseDetails.getAppName()
+                    + " downloaded successfully");
+            return true;
+        } else {
+            statusMessage.setCode(StatusMessage.Code.FAILURE);
+            statusMessage.setMessage(responseStatus);
+            return false;
         }
     }
 

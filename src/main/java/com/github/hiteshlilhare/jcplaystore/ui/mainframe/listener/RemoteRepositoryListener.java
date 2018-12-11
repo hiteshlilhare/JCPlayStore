@@ -15,4 +15,5 @@ import java.util.ArrayList;
 public interface RemoteRepositoryListener {
     public void updateAppStoreUI(
             ArrayList<AppReleaseDetails> listOfReleasedApps);
+    public void updateConnectivity(boolean connected);
 }

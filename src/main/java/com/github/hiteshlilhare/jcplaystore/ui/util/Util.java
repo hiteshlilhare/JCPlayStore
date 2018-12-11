@@ -5,12 +5,14 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.util;
 
+import com.github.hiteshlilhare.jcplaystore.JCConstants;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.MainFrame;
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
+import java.awt.HeadlessException;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -20,6 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipFile;
 import javax.swing.JOptionPane;
+import org.apache.commons.io.FileUtils;
 import org.bouncycastle.openpgp.PGPCompressedData;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
@@ -29,6 +32,7 @@ import org.bouncycastle.openpgp.PGPUtil;
 import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -36,6 +40,7 @@ import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProv
  */
 public class Util {
 
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(Util.class);
     public static final String SERVER_URL = Config.getServerUrl();
     public static final String APP_LIST_SERVICE = SERVER_URL + "/gvrad";
     public static final String GET_APP_SERVICE = SERVER_URL + "/gaa";
@@ -172,6 +177,136 @@ public class Util {
             }
         }
         return false;
+    }
+
+    /**
+     * Creates required directory structure a
+     *
+     * @throws HeadlessException
+     */
+    public static void createDirectoryStructure() throws HeadlessException {
+        //Create local app store directory if not exist.
+        File appStoreDir = new File(JCConstants.JC_APP_BASE_DIR);
+        //Create App Base directory.
+        if (!appStoreDir.exists()) {
+            if (appStoreDir.isFile()) {
+                try {
+                    FileUtils.forceDelete(appStoreDir);
+                } catch (IOException ex) {
+                    logger.info("createDirectoryStructure", ex);
+                    showInformationMessageDialog(
+                            "Unable to delete " + appStoreDir + " file, "
+                            + "please contact system administrator",
+                            "Create Directory");
+
+                    System.exit(0);
+                }
+            }
+            if (appStoreDir.mkdir()) {
+                //Create App Directory if not exists.
+                File appDir = new File(JCConstants.JC_APP_BASE_DIR
+                        + "/" + JCConstants.JC_APPS_DIR);
+                if (!appDir.exists() || appDir.isFile()) {
+                    if (!appDir.mkdir()) {
+                        logger.info("Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR
+                                + "/" + JCConstants.JC_APPS_DIR
+                                + " directory.");
+                        showInformationMessageDialog(
+                                "Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR
+                                + "/" + JCConstants.JC_APPS_DIR
+                                + " directory, "
+                                + "please contact system administrator.",
+                                "Create Directory");
+                        System.exit(0);
+                    }
+                }
+                //Create Database Directory if not exists.
+                File dbDir = new File(JCConstants.JC_APP_BASE_DIR
+                        + "/" + JCConstants.JC_DB_DIR);
+                if (!dbDir.exists() || dbDir.isFile()) {
+                    if (!dbDir.mkdir()) {
+                        logger.info("Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR
+                                + "/" + JCConstants.JC_DB_DIR
+                                + " directory.");
+                        showInformationMessageDialog(
+                                "Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR
+                                + "/" + JCConstants.JC_DB_DIR
+                                + " directory, "
+                                + "please contact system administrator.",
+                                "Create Directory");
+                        System.exit(0);
+                    }
+                }
+                //Create Sources Directory if not exists.
+                File sourceDir = new File(JCConstants.JC_APP_BASE_DIR
+                        + "/" + JCConstants.JC_SOURCES_DIR);
+                if (!sourceDir.exists() || sourceDir.isFile()) {
+                    if (!sourceDir.mkdir()) {
+                        logger.info("Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR + "/"
+                                + JCConstants.JC_SOURCES_DIR
+                                + " directory.");
+                        showInformationMessageDialog(
+                                "Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR + "/"
+                                + JCConstants.JC_SOURCES_DIR
+                                + " directory, "
+                                + "please contact system administrator.",
+                                "Create Directory");
+                        System.exit(0);
+                    }
+                }
+                //Create tools Directory if not exists.
+                File toolsDir = new File(JCConstants.JC_APP_BASE_DIR
+                        + "/" + JCConstants.JC_TOOLS_DIR);
+                if (!toolsDir.exists() || toolsDir.isFile()) {
+                    if (!toolsDir.mkdir()) {
+                        logger.info("Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR + "/"
+                                + JCConstants.JC_TOOLS_DIR
+                                + " directory.");
+                        showInformationMessageDialog(
+                                "Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR + "/"
+                                + JCConstants.JC_TOOLS_DIR
+                                + " directory, "
+                                + "please contact system administrator.",
+                                "Create Directory");
+                        System.exit(0);
+                    }
+                }
+                //Create temp Directory if not exists.
+                File tempDir = new File(JCConstants.JC_APP_BASE_DIR
+                        + "/" + JCConstants.JC_TEMP_DIR);
+                if (!tempDir.exists() || tempDir.isFile()) {
+                    if (!tempDir.mkdir()) {
+                        logger.info("Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR + "/"
+                                + JCConstants.JC_TEMP_DIR
+                                + " directory.");
+                        showInformationMessageDialog(
+                                "Unable to create "
+                                + JCConstants.JC_APP_BASE_DIR + "/"
+                                + JCConstants.JC_TEMP_DIR
+                                + " directory, "
+                                + "please contact system administrator.",
+                                "Create Directory");
+                        System.exit(0);
+                    }
+                }
+            } else {
+                logger.info("Unable to create "
+                        + JCConstants.JC_APP_BASE_DIR + " directory.");
+                showInformationMessageDialog(
+                        "Unable to create local App Store directory.",
+                        "JCPlayStore");
+                System.exit(0);
+            }
+        }
     }
 
 //    public static void downloadWithAHC(String url, String localFilename) 
