@@ -14,6 +14,7 @@ import java.util.ArrayList;
 public class CardAppMetaData {
 
     private String name;
+    private String appName;
     private String website;
     private final ArrayList<Author> authors = new ArrayList<>();
     private String company;
@@ -34,16 +35,20 @@ public class CardAppMetaData {
 
     @Override
     public String toString() {
-        return "AppName:" + name + "\nweb-site:" + website + "\ncompany:" 
-                + company + "\nlicense:" + license + "\nAuthors:" + authors 
+        return "AppName:" + name + "\nweb-site:" + website + "\ncompany:"
+                + company + "\nlicense:" + license + "\nAuthors:" + authors
                 + "\ncap-fie:" + capFile + "\ncart-icon:" + cartIconFile
-                + "\ndesc-icon:" + descIconFile + "\nversion:" + version 
-                + "\nSigned By:" + signedBy + "\nRelease Date:" + releaseDate 
+                + "\ndesc-icon:" + descIconFile + "\nversion:" + version
+                + "\nSigned By:" + signedBy + "\nRelease Date:" + releaseDate
                 + "\nDescription:" + description + "\nfeatupes:" + features
-                + "\nRepositories:" + repositories + "\nDiscussion:" 
+                + "\nRepositories:" + repositories + "\nDiscussion:"
                 + discussions + "\nUsers:" + users + "\nappstore-repository:"
-                + appstore_repository + "\nappsource-repository:" 
-                + appsource_repository;
+                + appstore_repository + "\nappsource-repository:"
+                + appsource_repository + "\napp-name:" + appName;
+    }
+
+    public String getID() {
+        return company + "/" + appName + "/" + version;
     }
 
     public String getName() {
@@ -54,6 +59,14 @@ public class CardAppMetaData {
         this.name = name;
     }
 
+    public String getAppName() {
+        return appName;
+    }
+
+    public void setAppName(String appName) {
+        this.appName = appName;
+    }
+    
     public String getWebsite() {
         return website;
     }
@@ -173,7 +186,7 @@ public class CardAppMetaData {
     public void setAppsourceRepository(String appsource_repository) {
         this.appsource_repository = appsource_repository;
     }
-    
+
     public void addDiscussion(String discussion) {
         discussions.add(discussion);
     }

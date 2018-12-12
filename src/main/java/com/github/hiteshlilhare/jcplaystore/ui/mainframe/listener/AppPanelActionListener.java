@@ -7,6 +7,7 @@ package com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener;
 
 import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
 
 /**
  *
@@ -16,4 +17,5 @@ public interface AppPanelActionListener {
 
     public void performAction(String action, CardAppDetail cardAppDetail);
     public void performAction(String action, AppReleaseDetails appReleaseDetails);
+    public void performAction(String action, CardAppMetaData downloadedAppDetail);
 }

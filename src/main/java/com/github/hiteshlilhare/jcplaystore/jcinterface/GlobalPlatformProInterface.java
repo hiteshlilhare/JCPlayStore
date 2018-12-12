@@ -375,8 +375,8 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
 // --install <applet.cap> (--applet <aid> --create <aid> --privs 
     //<privs> --params <params>)    
     public void installApplet(JavaCardReaderBean javaCardReaderBean,
-            StatusMessage statusMessage, 
-            String appFile, 
+            StatusMessage statusMessage,
+            String appFile,
             String... cmdOption) throws Exception {
         if (javaCardReaderBean == null
                 || !javaCardReaderBean.getCardTerminal().isCardPresent()) {
@@ -406,7 +406,7 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
             }
             exeArgs.setCmdLineOPtions(newOptions.toArray(new String[0]));
         }
-        
+
         exeArgs.setCmd(COMMANDS.INSTALL);
         executeCommand(exeArgs, statusMessage);
     }
@@ -857,6 +857,13 @@ public class GlobalPlatformProInterface extends GPCommandLineInterface implement
                             + exeArgs.getCmd() + " command");
                     return false;
                 }
+            } catch (jnasmartcardio.Smartcardio.JnaPCSCException ex) {
+                logger.error("executeCommand:Could not connect to "
+                        + exeArgs.getJavaCardReaderBean().getReaderName()
+                        , ex);
+                statusMessage.setCode(StatusMessage.Code.FAILURE);
+                statusMessage.setMessage("Please connect/reconnect card reader");
+                return false;
             } catch (CardException e) {
                 logger.error("executeCommand:Could not connect to "
                         + exeArgs.getJavaCardReaderBean().getReaderName()

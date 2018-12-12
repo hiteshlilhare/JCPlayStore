@@ -5,7 +5,11 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.util;
 
+import apdu4j.TerminalManager;
+import com.github.hiteshlilhare.jcplaystore.CardDetails;
 import com.github.hiteshlilhare.jcplaystore.JCConstants;
+import com.github.hiteshlilhare.jcplaystore.JCPlayStoreClient;
+import com.github.hiteshlilhare.jcplaystore.jcinterface.GlobalPlatformProInterface;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.MainFrame;
 import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
@@ -21,6 +25,10 @@ import java.io.InputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipFile;
+import javax.smartcardio.Card;
+import javax.smartcardio.CardChannel;
+import javax.smartcardio.CardException;
+import javax.smartcardio.CardTerminal;
 import javax.swing.JOptionPane;
 import org.apache.commons.io.FileUtils;
 import org.bouncycastle.openpgp.PGPCompressedData;
@@ -33,6 +41,11 @@ import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
 import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider;
 import org.slf4j.LoggerFactory;
+import pro.javacard.gp.GPData;
+import static pro.javacard.gp.GPData.fetchCPLC;
+import static pro.javacard.gp.GPData.fetchKeyInfoTemplate;
+import static pro.javacard.gp.GPData.getData;
+import pro.javacard.gp.GPException;
 
 /**
  *
@@ -45,6 +58,7 @@ public class Util {
     public static final String APP_LIST_SERVICE = SERVER_URL + "/gvrad";
     public static final String GET_APP_SERVICE = SERVER_URL + "/gaa";
     public static final String DOWNLOAD_APP_SERVICE = SERVER_URL + "/downloadAppZip";
+    public static final String RBUILD_APP_SERVICE = SERVER_URL + "/rbuild";
 
     // post request media type
     public static final MediaType JSON
@@ -306,6 +320,86 @@ public class Util {
                         "JCPlayStore");
                 System.exit(0);
             }
+        }
+    }
+
+    public static CardDetails getCardDetails() {
+        String reader = MainFrame.getInstance().getSelectedReader();
+        if (reader != null && reader.length() > 0) {
+            try {
+                CardTerminal cardTerminal = GlobalPlatformProInterface
+                        .getInstance().getReaderBean(reader).getCardTerminal();
+                if (cardTerminal.isCardPresent()) {
+                    Card card = null;
+                    CardChannel channel = null;
+                    try {
+                        card = cardTerminal.connect("*");
+                        // We use apdu4j which by default uses jnasmartcardio
+                        // which uses real SCardBeginTransaction
+                        card.beginExclusive();
+                        channel = card.getBasicChannel();
+                        CardDetails cardDetails = new CardDetails();
+                        cardDetails.setAtr(card.getATR());
+                        setCardDetails(channel, cardDetails);
+                        return cardDetails;
+                    } catch (CardException ex) {
+                        logger.info("getCardDetails:Could not connect to "
+                                + cardTerminal.getName() + ": "
+                                + TerminalManager.getExceptionMessage(ex), ex);
+                    } catch (GPException ex) {
+                        logger.info("getCardDetails", ex);
+                    } finally {
+                        if (card != null) {
+                            card.endExclusive();
+                            card.disconnect(true);
+                            card = null;
+                        }
+                    }
+                } else {
+                    logger.info("getCardDetails: Card is not present!!!");
+                }
+            } catch (jnasmartcardio.Smartcardio.JnaPCSCException ex) {
+                logger.error("getCardDetails:Could not connect to "
+                        + reader, ex);
+            } catch (CardException ex) {
+                logger.info("getCardDetails", ex);
+            }
+        }
+        return null;
+    }
+
+    public static void setCardDetails(CardChannel channel,
+            CardDetails cardDetails)
+            throws CardException, GPException {
+        byte[] cplc = fetchCPLC(channel);
+        if (cplc != null) {
+            cardDetails.setCplc(GPData.CPLC.fromBytes(cplc));
+        }
+        // IIN (issuer identification number)in the card manager
+        byte[] iin = getData(channel, 0x00, 0x42, "IIN", false);
+        if (iin != null) {
+            cardDetails.setInn(iin);
+        }
+        // CIN (card image number) in the card manager
+        byte[] cin = getData(channel, 0x00, 0x45, "CIN", false);
+        if (cin != null) {
+            cardDetails.setCin(cin);
+        }
+        // Print Card Data
+        byte[] cardData = getData(channel, 0x00, 0x66, "Card Data", false);
+        if (cardData != null) {
+            cardDetails.setCardData(cardData);
+        }
+        // Print Card Capabilities
+        byte[] cardCapabilities = getData(channel, 0x00, 0x67,
+                "Card Capabilities", false);
+        if (cardCapabilities != null) {
+            cardDetails.setCardCapabilities(cardCapabilities);
+        }
+        // Print Key Info Template
+        byte[] keyInfo = fetchKeyInfoTemplate(channel);
+        if (keyInfo != null) {
+            cardDetails.setKeyInfo(keyInfo);
         }
     }
 

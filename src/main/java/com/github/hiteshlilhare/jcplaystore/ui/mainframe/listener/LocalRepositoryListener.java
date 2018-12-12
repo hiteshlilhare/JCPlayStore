@@ -15,4 +15,6 @@ import java.util.ArrayList;
 public interface LocalRepositoryListener {
     public void updateLocalAppStoreUI(ArrayList<CardAppMetaData> 
             downloadedApps);
+    public void removeAppFromLocalAppStoreUI(String ID);
+    public void addAppFromLocalAppStoreUI(CardAppMetaData downloadedApps);
 }

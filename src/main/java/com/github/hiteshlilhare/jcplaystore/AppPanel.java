@@ -63,7 +63,7 @@ public class AppPanel extends JPanel {
         initComponents();
         initialize();
         summaryTextArea.append(System.lineSeparator() 
-                + appReleaseDetails.getRemarks());
+                + appReleaseDetails.getAppMetaData().getDescription());
     }
     
     public AppPanel(CardAppMetaData downloadedApp) {
@@ -73,7 +73,7 @@ public class AppPanel extends JPanel {
         initComponents();
         initialize();
         summaryTextArea.append(System.lineSeparator() 
-                + downloadedApp.getCompany());
+                + downloadedApp.getDescription());
     }
 
     public void setButtonsVisibility(boolean[] diudbFlags) {
@@ -173,7 +173,7 @@ public class AppPanel extends JPanel {
         summaryTextArea.setLineWrap(true);
         summaryTextArea.setRows(4);
         summaryTextArea.setTabSize(5);
-        summaryTextArea.setText("Security applet");
+        summaryTextArea.setText("Java Card Application");
         summaryTextArea.setWrapStyleWord(true);
         summaryTextArea.setBorder(null);
         summaryTextArea.setFocusable(false);
@@ -242,7 +242,6 @@ public class AppPanel extends JPanel {
             }
         });
         buttonPanel.add(buildButton);
-        buildButton.getAccessibleContext().setAccessibleDescription("Build");
 
         emvLabelPanel.setBackground(new java.awt.Color(255, 51, 0));
         emvLabelPanel.setForeground(new java.awt.Color(255, 255, 255));
@@ -403,7 +402,18 @@ public class AppPanel extends JPanel {
                 }
 
             } else if (cartId == AppsCart.ID.LOCAL_APP) {
-
+                if (SwingUtilities.isEventDispatchThread()) {
+                    appPanelActionListener.performAction(action,
+                            downloadedApp);
+                } else {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            appPanelActionListener.performAction(action,
+                                    downloadedApp);
+                        }
+                    });
+                }
             }
 
         }
@@ -415,6 +425,10 @@ public class AppPanel extends JPanel {
 
     public AppReleaseDetails getAppReleaseDetails() {
         return appReleaseDetails;
+    }
+    
+    public CardAppMetaData getDownloadedAppDetails(){
+        return downloadedApp;
     }
 
     public int getColIdx() {

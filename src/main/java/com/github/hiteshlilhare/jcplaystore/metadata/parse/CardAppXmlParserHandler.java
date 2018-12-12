@@ -119,6 +119,8 @@ public class CardAppXmlParserHandler extends DefaultHandler {
             appMetaData.setAppstoreRepository(value);
         } else if ("appsource-repository".equalsIgnoreCase(currentElement())) {
             appMetaData.setAppsourceRepository(value);
+        } else if ("app-name".equalsIgnoreCase(currentElement())) {
+            appMetaData.setAppName(value);
         } else if ("e-mail".equalsIgnoreCase(currentElement())) {
             if (this.elementStack.search("author") == 2) {
                 ((Author) this.objectStack.peek()).setEmail(value);

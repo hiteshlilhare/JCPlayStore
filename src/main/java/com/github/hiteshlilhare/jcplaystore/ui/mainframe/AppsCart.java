@@ -11,10 +11,13 @@ import com.github.hiteshlilhare.jcplaystore.jcbeans.AppReleaseDetails;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.jcinterface.GlobalPlatformProInterface;
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.CardAppXmlParser;
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelCellEditor;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelCellRenderer;
 import com.github.hiteshlilhare.jcplaystore.test.AppPanelTableModel;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.AppPanelActionListener;
+import com.github.hiteshlilhare.jcplaystore.ui.util.LocalRepositoryMonitorTimerTask;
 import com.github.hiteshlilhare.jcplaystore.ui.util.ModernScrollPane;
 import com.github.hiteshlilhare.jcplaystore.ui.util.StatusMessage;
 import com.github.hiteshlilhare.jcplaystore.ui.util.UnzipUtility;
@@ -33,6 +36,7 @@ import java.awt.event.MouseMotionAdapter;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -254,7 +258,7 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
             columnModel.getColumn(i).setMinWidth(AppPanel.WIDTH);
         }
     }
-    
+
     /**
      * Add App Panel in Local Store AppCart.
      *
@@ -263,12 +267,12 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
     public void addAppPanelInLocalStoreAppCart(AppPanel app) {
         TableColumnModel columnModel = table.getColumnModel();
         int count = columnModel.getColumnCount();
-        System.out.println("Column count before = " + count);
+        //System.out.println("Column count before = " + count);
         AppPanel cellAppPanel;
         for (int col_index = 0; col_index < count; col_index++) {
             cellAppPanel = (AppPanel) table.getModel().getValueAt(0, col_index);
-            if (cellAppPanel.getAppReleaseDetails().getID().equalsIgnoreCase(
-                    app.getAppReleaseDetails().getID())) {
+            if (cellAppPanel.getDownloadedAppDetails().getID().equalsIgnoreCase(
+                    app.getDownloadedAppDetails().getID())) {
                 //System.out.println(app.getAppReleaseDetails().getID()
                 //        + " is already there.");
                 return;
@@ -359,8 +363,6 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
         AppPanel cellAppPanel = (AppPanel) table.getModel().getValueAt(0, idx);
         logger.info("AppPanel Object col idx = " + cellAppPanel.getColIdx()
                 + " AppCart Object col idx. " + idx + " Both has to be same.");
-        logger.info("AppPanel Object aid " + cellAppPanel.getCardAppDetail().getAid());
-
         //Remove from UI Panel
         table.removeColumn(column);
         //Remove from table model
@@ -384,8 +386,6 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
         AppPanel cellAppPanel = (AppPanel) table.getModel().getValueAt(0, idx);
         logger.info("AppPanel Object col idx = " + cellAppPanel.getColIdx()
                 + " AppCart Object col idx. " + idx + " Both has to be same.");
-        logger.info("AppPanel Object aid " + cellAppPanel.getCardAppDetail().getAid());
-
         //Remove from UI Panel
         table.removeColumn(column);
         //Remove from table model
@@ -402,6 +402,27 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
         }
         //end of updation.
         return true;
+    }
+
+    public boolean removeAppPanelFromLocalAppsPanel(String ID) {
+        TableColumnModel columnModel = table.getColumnModel();
+        int count = columnModel.getColumnCount();
+        AppPanel cellAppPanel;
+        int idx = -1;
+        for (int col_index = 0; col_index < count; col_index++) {
+            cellAppPanel = (AppPanel) table.getModel().getValueAt(0, col_index);
+            if (cellAppPanel.getDownloadedAppDetails().getID()
+                    .equalsIgnoreCase(ID)) {
+                //System.out.println(app.getAppReleaseDetails().getID()
+                //        + " is already there.");
+                idx = col_index;
+                break;
+            }
+        }
+        if (idx == -1) {
+            return false;
+        }
+        return removeAppPanelFromLocalAppsPanel(idx);
     }
 
     /**
@@ -464,11 +485,12 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
         Gson gsonBuilder = new GsonBuilder().create();
         String appReleaseDetailsJson = gsonBuilder.toJson(appReleaseDetails);
         if (action.equalsIgnoreCase(AppPanel.ACTIONS.INSTALL.toString())) {
-            System.out.println("Installing Applet...");
+            logger.info("Installing " + appReleaseDetails.getAppName() + " ...");
             try {
                 StatusMessage statusMessage = new StatusMessage();
                 boolean status = downloadAppFromAppStore(appReleaseDetailsJson,
-                        appReleaseDetails, AppPanel.ACTIONS.INSTALL, statusMessage);
+                        appReleaseDetails, AppPanel.ACTIONS.INSTALL,
+                        statusMessage);
                 if (!status) {
                     Util.showInformationMessageDialog(statusMessage.getMessage(),
                             "Install");
@@ -508,7 +530,8 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
                             javaCardReaderBean);
 
                 } else {
-                    Util.showInformationMessageDialog(statusMessage.getMessage(),
+                    Util.showInformationMessageDialog(
+                            statusMessage.getMessage(),
                             "Install");
                 }
 
@@ -532,7 +555,8 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
                         + " information",
                         "Install");
             }
-        } else if (action.equalsIgnoreCase(AppPanel.ACTIONS.DOWNLOAD.toString())) {
+        } else if (action.equalsIgnoreCase(
+                AppPanel.ACTIONS.DOWNLOAD.toString())) {
             try {
                 StatusMessage statusMessage = new StatusMessage();
                 downloadAppFromAppStore(appReleaseDetailsJson,
@@ -540,15 +564,48 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
                         AppPanel.ACTIONS.DOWNLOAD,
                         statusMessage);
                 if (statusMessage.getCode() == StatusMessage.Code.SUCCESS) {
-
-                    Util.showInformationMessageDialog(statusMessage.getMessage(),
-                            "Download");
+                    //alternate
+                    //LocalRepositoryMonitorTimerTask.getInstance().run();
+                    //or the below code
+                    File appDir = new File(JCConstants.JC_APP_BASE_DIR
+                            + "/" + JCConstants.JC_APPS_DIR
+                            + "/" + appReleaseDetails.getDeveloperId()
+                            + "/" + appReleaseDetails.getAppName()
+                            + "/" + appReleaseDetails.getVersion());
+                    File[] xmlFiles = appDir.listFiles(new FileFilter() {
+                        @Override
+                        public boolean accept(File file) {
+                            return file.getName().endsWith(".xml");
+                        }
+                    });
+                    if (xmlFiles.length > 0) {
+                        //Create the parser instance
+                        CardAppXmlParser parser = new CardAppXmlParser();
+                        //Parse the file
+                        CardAppMetaData appMetaData = parser.parseXml(
+                                new FileInputStream(xmlFiles[0]));
+                        //Add in HashMap
+                        LocalRepositoryMonitorTimerTask.getInstance()
+                                .addAppToDownloadedAppMap(appMetaData);
+                        //Add app panel to local store app cart.
+                        ((AppCartsPanel) getParent())
+                                .createAndAddAppPanelToLocalStoreAppCart(
+                                        appMetaData);
+                    } else {
+                        Util.showInformationMessageDialog("Download of "
+                                + appReleaseDetails.getAppName()
+                                + " application is unsuccessful",
+                                "Download");
+                        FileUtils.deleteDirectory(new File(
+                                JCConstants.JC_APP_BASE_DIR
+                                + "/" + JCConstants.JC_APPS_DIR
+                                + "/" + appReleaseDetails.getDeveloperId()));
+                    }
                 } else {
                     Util.showInformationMessageDialog(
                             statusMessage.getMessage(),
                             "Download");
                 }
-
             } catch (IOException ex) {
                 logger.error("performAction", ex);
                 Util.showInformationMessageDialog("Download of "
@@ -558,6 +615,94 @@ public class AppsCart extends JPanel implements AppPanelActionListener {
             }
         } else if (action.equalsIgnoreCase(AppPanel.ACTIONS.BUILD.toString())) {
             System.out.println("Performing Build...");
+            try {
+                String responseJson = Util.doPostRequest(
+                        Util.RBUILD_APP_SERVICE,
+                        appReleaseDetailsJson);
+                logger.info(Util.GET_APP_SERVICE + ":response:"
+                        + responseJson);
+                JsonParser jsonParser = new JsonParser();
+                JsonObject responseJsonObj = jsonParser.parse(responseJson)
+                        .getAsJsonObject();
+                String responseStatus
+                        = responseJsonObj.get("Status").getAsString();
+                if (responseStatus.equalsIgnoreCase("SUCCESS")) {
+                    Util.showInformationMessageDialog(
+                            appReleaseDetails.getAppName()
+                            + " application build successful",
+                            "Build");
+                }
+            } catch (IOException ex) {
+                logger.error("performAction", ex);
+                Util.showInformationMessageDialog("Unabe to build "
+                        + appReleaseDetails.getAppName()
+                        + " application, please check log for detailed"
+                        + " information",
+                        "Build");
+            }
+        }
+    }
+
+    @Override
+    public void performAction(String action,
+            CardAppMetaData downloadedAppDetail) {
+        try {
+            Path destDir = Paths.get(JCConstants.JC_APP_BASE_DIR,
+                    JCConstants.JC_APPS_DIR,
+                    downloadedAppDetail.getCompany(),
+                    downloadedAppDetail.getAppName(),
+                    downloadedAppDetail.getVersion());
+            File appFiles[] = destDir.toFile().listFiles((File file) -> {
+                return file.getName().endsWith(".cap");
+            });
+            if (appFiles.length == 0) {
+                logger.info(downloadedAppDetail.getAppName()
+                        + " application executable does not exist at "
+                        + destDir.toString());
+                Util.showInformationMessageDialog("Unabe to install "
+                        + downloadedAppDetail.getAppName()
+                        + " application, please check log for detailed"
+                        + " information", "Install");
+                return;
+            }
+            JavaCardReaderBean javaCardReaderBean
+                    = ((AppCartsPanel) getParent()).getJavaCardReaderBean();
+            StatusMessage statusMessage = new StatusMessage();
+            GlobalPlatformProInterface.getInstance(MainFrame.SPEC)
+                    .installApplet(javaCardReaderBean,
+                            statusMessage,
+                            appFiles[0].getAbsolutePath());
+            if (statusMessage.getCode() == StatusMessage.Code.SUCCESS) {
+                //Show newly installed app in installed apps panel.
+                GlobalPlatformProInterface.getInstance().getListOfApplets(
+                        javaCardReaderBean,
+                        true);
+                ((AppCartsPanel) getParent()).updateInstalledAppCart(
+                        javaCardReaderBean);
+
+            } else {
+                Util.showInformationMessageDialog(statusMessage.getMessage(),
+                        "Install");
+            }
+        } catch (IOException ex) {
+            logger.error("performAction", ex);
+            Util.showInformationMessageDialog("Unabe to install "
+                    + downloadedAppDetail.getAppName()
+                    + " application, please check log for detailed"
+                    + " information",
+                    "Install");
+        } catch (jnasmartcardio.Smartcardio.JnaPCSCException ex) {
+            logger.error("performAction", ex);
+            Util.showInformationMessageDialog(
+                    "Please connect/reconnect smart card reader",
+                    "Install");
+        } catch (Exception ex) {
+            logger.error("performAction", ex);
+            Util.showInformationMessageDialog("Unabe to install "
+                    + downloadedAppDetail.getAppName()
+                    + " application, please check log for detailed"
+                    + " information",
+                    "Install");
         }
     }
 

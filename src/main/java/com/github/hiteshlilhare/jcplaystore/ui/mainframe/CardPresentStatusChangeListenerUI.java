@@ -5,6 +5,7 @@
  */
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe;
 
+import com.github.hiteshlilhare.jcplaystore.db.DBUtil;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardPresentStatusChangeListener;
 import javax.swing.SwingUtilities;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ public class CardPresentStatusChangeListenerUI implements CardPresentStatusChang
         logger.info("Card Connected :" + status);
         logger.info("MainFrame.getInstance().updateReaderNode");
         MainFrame.getInstance().updateReaderNode(readerName, status);
+        DBUtil.insertCardDetailsIfNotExists();
     }
 
 }

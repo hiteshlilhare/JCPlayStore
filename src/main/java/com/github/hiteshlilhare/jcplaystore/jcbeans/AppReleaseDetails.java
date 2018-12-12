@@ -1,6 +1,7 @@
 package com.github.hiteshlilhare.jcplaystore.jcbeans;
 
 import com.github.hiteshlilhare.jcplaystore.exception.FieldNotPresentException;
+import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -59,6 +60,7 @@ public class AppReleaseDetails {
     //Corresponds to remearks in github_releases table and used for updating remarks for
     //releases in github_releases table.
     private String remarks;
+    private final CardAppMetaData appMetaData = new CardAppMetaData();
 
     @Override
     public String toString() {
@@ -68,6 +70,10 @@ public class AppReleaseDetails {
                 + System.lineSeparator() + "Source Clone URL: " + sourceCloneURL + System.lineSeparator()
                 + "Tested On: " + testedOn + System.lineSeparator() + "Rating: " + rating + System.lineSeparator()
                 + "Status: " + status + System.lineSeparator() + "Remarks: " + remarks;
+    }
+    
+    public CardAppMetaData getAppMetaData() {
+        return appMetaData;
     }
 
     /**
@@ -148,7 +154,8 @@ public class AppReleaseDetails {
             if (!jsonElement.isJsonNull()) {
                 Gson googleJson = new Gson();
                 ArrayList<String> javaArrayListFromGSON
-                        = googleJson.fromJson(jsonElement.getAsJsonArray(),
+                        = (ArrayList<String>)googleJson.fromJson(
+                                jsonElement.getAsJsonArray(),
                                 ArrayList.class);
                 for (String cardName : javaArrayListFromGSON) {
                     releasedApp.addJavaCardTestedOn(cardName);

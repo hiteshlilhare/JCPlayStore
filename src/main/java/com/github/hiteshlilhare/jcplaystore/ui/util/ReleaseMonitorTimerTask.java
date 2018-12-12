@@ -28,7 +28,7 @@ public class ReleaseMonitorTimerTask extends TimerTask {
             LoggerFactory.getLogger(ReleaseMonitorTimerTask.class);
 
     private final HashMap<String, AppReleaseDetails> appReleaseDetailMap 
-            = new HashMap();
+            = new HashMap<>();
 
     private RemoteRepositoryListener listener;
 
@@ -79,6 +79,7 @@ public class ReleaseMonitorTimerTask extends TimerTask {
                                 appReleaseId, 
                                 appReleaseDetails);
                         notifyListener = true;
+                        logger.info("Got new released app details");
                     }
                 }
                 if (notifyListener) {
@@ -90,22 +91,20 @@ public class ReleaseMonitorTimerTask extends TimerTask {
                         if (SwingUtilities.isEventDispatchThread()) {
                             listener.updateAppStoreUI(listOfReleasedApps);
                         } else {
-                            SwingUtilities.invokeLater(new Runnable() {
-                                @Override
-                                public void run() {
-                                    listener.updateAppStoreUI(
-                                            listOfReleasedApps);
-                                }
+                            SwingUtilities.invokeLater(() -> {
+                                listener.updateAppStoreUI(
+                                        listOfReleasedApps);
                             });
                         }
                     }
                 }
-                logger.info("Successfully got released app details");
+                
             } else {
                 logger.info(status);
             }
         } catch (ConnectException ex) {
             notifyConnectivity(false);
+            appReleaseDetailMap.clear();
         } catch (IOException ex) {
             logger.error("run", ex);
         }

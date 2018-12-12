@@ -11,9 +11,12 @@ import com.github.hiteshlilhare.jcplaystore.jcbeans.CardAppDetail;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardBean;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.metadata.parse.bean.CardAppMetaData;
-import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardLayoutSelectionChangeListener;
-import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.LocalRepositoryListener;
-import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.RemoteRepositoryListener;
+import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener
+        .CardLayoutSelectionChangeListener;
+import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener
+        .LocalRepositoryListener;
+import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener
+        .RemoteRepositoryListener;
 import info.clearthought.layout.TableLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -85,14 +88,17 @@ public class AppCartsPanel extends javax.swing.JPanel
      * @param javaCardBean
      * @param cardPresent
      */
-    public void updateInstalledAppCart(JavaCardBean javaCardBean, boolean cardPresent) {
+    public void updateInstalledAppCart(JavaCardBean javaCardBean,
+            boolean cardPresent) {
         //1. Remove all AppPanel from the installedAppPanel.
-        installedAppsCart.removeAllAppPanelsFromUIOnly(AppsCart.ID.INSATLLED_APP);
+        installedAppsCart.removeAllAppPanelsFromUIOnly(
+                AppsCart.ID.INSATLLED_APP);
         //2. Update the Map vaue for AppsCart.ID.INSATLLED_APP
-        JavaCardBean previousJavaCardBean = cardBeanMap.get(AppsCart.ID.INSATLLED_APP.toString());
+        JavaCardBean previousJavaCardBean = cardBeanMap.get(
+                AppsCart.ID.INSATLLED_APP.toString());
         if (previousJavaCardBean != null) {
-            //No need to check freshness as this falg is represents association of
-            //JavaCardBean to the AppCartPanel.
+            //No need to check freshness as this falg is represents association
+            //of JavaCardBean to the AppCartPanel.
             previousJavaCardBean.setAttachedToInstalledAppPanel(false);
         }
         javaCardBean.setAttachedToInstalledAppPanel(true);
@@ -102,8 +108,10 @@ public class AppCartsPanel extends javax.swing.JPanel
             if (javaCardBean.isFresh()) {
                 updateAppDetails(javaCardBean);
             } else {
-                logger.error("Conflict:Card Present but Card Bean status is false!!!");
-                logger.info("Conflict:Card Present but Card Bean status is false!!!");
+                logger.error("Conflict:Card Present but Card "
+                        + "Bean status is false!!!");
+                logger.info("Conflict:Card Present but Card "
+                        + "Bean status is false!!!");
             }
         } else {
             installedAppsCart.showNoCardPresentPanel();
@@ -112,7 +120,8 @@ public class AppCartsPanel extends javax.swing.JPanel
     }
 
     private void updateAppDetails(JavaCardBean javaCardBean1) {
-        ArrayList<CardAppDetail> cardAppDetails = javaCardBean1.getCardAppDetails();
+        ArrayList<CardAppDetail> cardAppDetails = 
+                javaCardBean1.getCardAppDetails();
         if (cardAppDetails.isEmpty()) {
             logger.info("No app present");
             installedAppsCart.showNoAppPresentPanel();
@@ -120,7 +129,8 @@ public class AppCartsPanel extends javax.swing.JPanel
             for (CardAppDetail cardAppDetail : cardAppDetails) {
                 if (cardAppDetail.isFresh()) {
                     AppPanel appPanel = new AppPanel(cardAppDetail);
-                    appPanel.setButtonsVisibility(new boolean[]{true, false, true, false, false});
+                    appPanel.setButtonsVisibility(
+                            new boolean[]{true, false, true, false, false});
                     appPanel.setCardLayoutSelectionChangeListener(listener);
                     installedAppsCart.addAppPanel(appPanel);
                 }
@@ -160,7 +170,8 @@ public class AppCartsPanel extends javax.swing.JPanel
     public void updateAppStoreUI(ArrayList<AppReleaseDetails> releasedApps) {
         for (AppReleaseDetails releasedApp : releasedApps) {
             AppPanel appPanel = new AppPanel(releasedApp);
-            appPanel.setButtonsVisibility(new boolean[]{false, true, false, true, true});
+            appPanel.setButtonsVisibility(
+                    new boolean[]{false, true, false, true, true});
             appPanel.setCardLayoutSelectionChangeListener(listener);
             appStoreAppsCart.addAppPanelInAppStoreAppCart(appPanel);
         }
@@ -180,11 +191,27 @@ public class AppCartsPanel extends javax.swing.JPanel
     public void updateLocalAppStoreUI(
             ArrayList<CardAppMetaData> downloadedApps) {
         for (CardAppMetaData downloadedApp : downloadedApps) {
-            AppPanel appPanel = new AppPanel(downloadedApp);
-            appPanel.setButtonsVisibility(new boolean[]{false, true, false, false, false});
-            appPanel.setCardLayoutSelectionChangeListener(listener);
-            localAppsCart.addAppPanelInLocalStoreAppCart(appPanel);
+            createAndAddAppPanelToLocalStoreAppCart(downloadedApp);
         }
+    }
+
+    public void createAndAddAppPanelToLocalStoreAppCart(
+            CardAppMetaData downloadedApp) {
+        AppPanel appPanel = new AppPanel(downloadedApp);
+        appPanel.setButtonsVisibility(
+                new boolean[]{false, true, false, false, false});
+        appPanel.setCardLayoutSelectionChangeListener(listener);
+        localAppsCart.addAppPanelInLocalStoreAppCart(appPanel);
+    }
+
+    @Override
+    public void removeAppFromLocalAppStoreUI(String ID) {
+        localAppsCart.removeAppPanelFromLocalAppsPanel(ID);
+    }
+
+    @Override
+    public void addAppFromLocalAppStoreUI(CardAppMetaData downloadedApp) {
+        createAndAddAppPanelToLocalStoreAppCart(downloadedApp);
     }
     // Variables declaration - do not modify//GEN-BEGIN:variables
     // End of variables declaration//GEN-END:variables

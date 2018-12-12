@@ -6,6 +6,7 @@
 package com.github.hiteshlilhare.jcplaystore.ui.mainframe;
 
 import com.github.hiteshlilhare.jcplaystore.JCConstants;
+import com.github.hiteshlilhare.jcplaystore.db.DBUtil;
 import com.github.hiteshlilhare.jcplaystore.jcbeans.JavaCardReaderBean;
 import com.github.hiteshlilhare.jcplaystore.jcinterface.GlobalPlatformProInterface;
 import com.github.hiteshlilhare.jcplaystore.ui.mainframe.listener.CardReaderStatusListener;
@@ -232,7 +233,8 @@ public class MainFrame extends javax.swing.JFrame {
         } else {
             Config.createDefault();
         }
-
+        //Initialize database
+        DBUtil.connectAndCreateTableIfNotExists();
         //Add Bouncy Castle as Cryptographic Service Provider.
         Security.addProvider(new BouncyCastleProvider());
 
